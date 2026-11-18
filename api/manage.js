@@ -65,6 +65,21 @@ async function sistemaGeralLigado() {
   } catch (_) { return false; }
 }
 
+// 18/11/2026 — Roberto, furioso, print real do admin mostrando Reels sendo
+// montados às 03h-04h BRT: "a porra do sistema continua produzindo e
+// gerando reelss!!! nao é pra acontecer isso". Causa raiz real confirmada
+// (ver api/run_portal.js): o robô de captura de TikTok rodava 24h sem
+// nenhum gate de horário, e handleReelsRenderJob (abaixo) só tinha o
+// toggle MANUAL (SISTEMA_LIGADO) — nenhum gate automático pela janela
+// 06h-00h BRT já usada pelos 8 canais de geração de conteúdo. Mesma lógica
+// duplicada verbatim de pausaNoturnaAtiva() em api/run_portal.js — zero
+// import cruzado, mesma convenção já usada no projeto.
+function pausaNoturnaAtiva() {
+  const br = new Date(Date.now() - 3 * 3600000);
+  const minutos = br.getUTCHours() * 60 + br.getUTCMinutes();
+  return minutos < 360; // true = dentro de 00h-06h BRT
+}
+
 const VENDOR_JS = {
   react: "https://unpkg.com/react@18/umd/react.production.min.js",
   "react-dom": "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
@@ -2298,6 +2313,10 @@ async function handleReelsRenderJob(req, res, body) {
   // reels_set_layout/reels_aprovar/reels_publish, ações próprias, não
   // tocadas por este gate) — então bloquear aqui sempre é seguro.
   if (!(await sistemaGeralLigado())) return res.status(200).json({ ok: true, job: null, reason: "sistema_geral_pausado" });
+  // 18/11/2026 — gate automático pela janela 06h-00h BRT (ver comentário em
+  // pausaNoturnaAtiva() acima) — além do toggle manual, nunca inicia uma
+  // nova captura/render de Reel durante a pausa noturna.
+  if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, job: null, reason: "pausado_madrugada" });
 
   // 21/09/2026 — 🔴 causa raiz real confirmada com dado de produção (13.887
   // posts têm updated_at mais antigo que um vídeo pendente de 9h atrás, e
