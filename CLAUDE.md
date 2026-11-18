@@ -11453,3 +11453,40 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar em produção, com o próximo post real de política/economia/finanças/polícia**, que o `oterrasan` recebe o convite de collab e que ele é aceito+curtido automaticamente (sem ninguém precisar abrir o app) — nenhuma publicação real com a tag `feed_subject` foi observada ainda, só a lógica/deploy.
 2. Demais pendências de sessões anteriores seguem válidas (janela das 17h do feed do OVC — aguardando resposta de Roberto; pausa 00h-06h cobrindo tudo; `fofocas`/Giro ~39h sem gerar; outras rotas legadas com possível bypass de `force=true`).
+
+---
+
+### Sessão 18/11/2026 (continuação) — FLAG/BADGE DE CATEGORIA NA ARTE AUTOMÁTICA DO INSTAGRAM (OVC + Brasil On)
+
+#### Contexto
+
+Roberto: *"Claude, eu quero que você implemente tanto no Brasil On quanto no Valor Capital, de acordo com o tema, o conteúdo que vai para o Instagram, que ele capture a categoria ou a subcategoria daquele assunto mediante as categorias do nosso portal [...] e coloque uma flagzinha na arte automática daquilo que vai para o Instagram. [...] o tema é política [...] aí vai uma flagzinha lá da cor que é política no portal. Não sei de cabeça qual é a cor, você vai lá e vai ver que você tem acesso. [...] bem discreto, bem profissional [...] Depois do logo não, porque eu quero tudo distante dos logos."*
+
+#### O que foi feito (PR #899, squash commit `bcb581b8`)
+
+- **Cores/labels nunca inventados** — lidos direto de `CORES_CAT`/`CATS` em `public/js/ovc-cards.js` (fonte real do sitewide, por instrução explícita de Roberto de ir checar o código).
+- **`core/instagram_image.js`**: `resolveBadgeCategory(tags)` replica (sem import cruzado — convenção do projeto) o algoritmo canônico `normalizeCat()` de `api/portal-posts.js`, resolvendo `user_tags` (incluindo aliases legados — `tributos`→`economia`, `investimentos`→`financas`, `vc`→`colunistas` etc.) na categoria real de uma das 11 categorias canônicas. `buildCategoryBadgeLayers()` desenha um pill com texto branco negrito, cor de fundo da categoria + sombra sutil (blur via SVG `feGaussianBlur`, não `feDropShadow`, por compatibilidade ampla do librsvg), posicionado no canto superior esquerdo, **abaixo do logo do topo** (nunca encostado nele, por pedido explícito). `buildInstagramImageBuffer`/`prepareInstagramImage` passam a aceitar `tags`; o hash SHA1 de cache (`HEADLINE_VERSION` bumped pra `v9`) agora inclui a categoria resolvida — mudar a categoria de um post invalida a imagem em cache.
+- **`brasilon/core/instagram_image.js`**: mesma técnica, duplicada por completo (zero import cruzado entre `brasilon/` e a raiz — os dois são deploys Vercel independentes), usando as 5 categorias reais que `classificar()` já produz no Brasil On (`brasil-on`, `politica`, `policia`, `futebol`, `giro`) — Brasil On nunca teve esquema de cor por categoria próprio (confirmado via grep), então reaproveitadas as cores reais do OVC pras categorias compartilhadas e a cor de fallback cinza documentada do OVC pra `giro`. `buildInstagramImageBuffer`/`prepareInstagramImage` passam a aceitar `categoria` (campo já existe direto na linha de `brasilon_posts`, mais simples que resolver tags).
+- **`api/manage.js`**: os 3 pontos reais que chamam `prepareInstagramImage` (publish manual em `handleIgPublish`, preview em `handleIgPreview`, automação+fila prioritária em `_publicarPostFeedAutomatico`) passam `tags: post.user_tags` — inclusive o preview, pra bater exatamente com o que será publicado de fato.
+- **`brasilon/api/manage.js`**: `_igPublicarPost()` passa `categoria: post.categoria` — confirmado que os 2 callers reais (`handleInstagramPublish` via `select("*")`, `handleInstagramAutoPublish` via select explícito já incluindo `categoria`) sempre têm o campo disponível.
+
+#### Verificação (local, real — nunca só cálculo de pixel)
+
+Seguindo o protocolo já estabelecido no projeto, as funções reais (`buildInstagramImageBuffer`) foram chamadas de verdade (com `global.fetch` mockado via `sharp({create:...})` gerando uma foto dummy), o resultado salvo e **inspecionado visualmente** via Read tool antes de considerar correto:
+
+- **OVC**: política (vermelho), esportes (verde), colunistas (dourado, label "COLUNISTAS" correto), economia via alias legado `tributos` (resolve certo pra azul "ECONOMIA" — confirma que `resolveBadgeCategory` trata aliases, não só a categoria direta), categoria não reconhecida (nenhum badge desenhado — no-op limpo, sem artefato visual), família (rosa — reconferido depois do fix de sombra, contra fundo cinza).
+- **Brasil On**: politica (vermelho), policia (vermelho escuro — confirmado posicionado longe do ícone, que no Brasil On vive no rodapé), futebol (verde), brasil-on (navy), giro (cinza — achado real: sem a sombra, o pill ficava quase invisível contra uma foto de fundo igualmente cinza; corrigido adicionando sombra sutil nos dois arquivos, OVC e Brasil On, e reconfirmado visualmente nos dois).
+
+**⚠️ Não verificado em produção real ainda** — nenhum post automático com o badge foi observado publicado de fato (só código + deploy confirmados). Confirmar com o próximo post automático gerado em cada portal.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado — nenhum arquivo novo, só edição de `api/manage.js`/`brasilon/api/manage.js`/`core/instagram_image.js`/`brasilon/core/instagram_image.js`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com o próximo post automático real** (OVC e Brasil On, separadamente) que o badge aparece corretamente na imagem publicada de verdade no Instagram — a verificação desta sessão foi só local/visual, nunca em produção.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
