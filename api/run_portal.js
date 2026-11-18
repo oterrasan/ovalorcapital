@@ -591,6 +591,14 @@ async function _finalizarLinkJob(key, ok, info) {
 // Runner pede os pedidos pendentes. peek:true só conta, sem reservar.
 async function handleLinkJobsPendentes(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  // 18/11/2026 — mesmo gate de handleMetropolesTiktokRegistrar: nunca marca
+  // nada como "processing" nem entrega trabalho ao runner durante a pausa —
+  // o job fica como estava (pending), retomado sozinho às 06h BRT. Cobre
+  // tanto job criado pelo robô quanto qualquer link social que Roberto
+  // tenha colado e precisasse do runner — "sistema todo deve ser travado...
+  // em NADA" (Roberto). peek:true também respeita, pra não acender badge de
+  // pendência no admin sugerindo que algo vai rodar sozinho à noite.
+  if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, count: 0, jobs: [], info: "pausado_madrugada" });
   const { data, error } = await supabase.from("config").select("key,value").like("key", `${LINK_JOB_PREFIX}%`).limit(50);
   if (error) return res.status(500).json({ ok: false, error: error.message });
   const staleBefore = Date.now() - 30 * 60 * 1000;
@@ -661,6 +669,16 @@ const TIKTOK_ROBO_IDADE_MAX_MS = 3 * 3600 * 1000;
 async function handleMetropolesTiktokRegistrar(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!(await automacaoAtiva())) return res.status(200).json({ ok: true, generated: 0, info: "automacao_geral_desligada" });
+  // 18/11/2026 — Roberto, furioso, com print real do admin mostrando posts
+  // criados às 03h36-04h11 BRT: "nao é pra gerar conteudo de madrugada em
+  // NADA... o sistema so deve produzir conteudos se forem manuais e se eu
+  // FIZER MANUALMENTE". Reverte a decisão de 10/11/2026 ("tire a pausa
+  // noturna daqui, não protege cota nenhuma") — confirmado com dado real
+  // (TIKTOK_ROBO_TT__* marcando descoberta a cada ~15min a noite toda, posts
+  // reais batendo exatamente com os horários do print) que este robô é a
+  // causa raiz: discovery+enqueue 24h sem nenhum gate de horário. Agora
+  // bloqueado igual aos outros 8 canais automáticos (pausaNoturnaAtiva()).
+  if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, generated: 0, info: "pausado_madrugada" });
   const user = String(body.user || "metropolesoficial").toLowerCase().replace(/[^a-z0-9._]/g, "");
   const categoria = TIKTOK_ROBO_CONTAS[user] || "brasil-on";
   const videos = Array.isArray(body.videos) ? body.videos.slice(0, 40) : [];
