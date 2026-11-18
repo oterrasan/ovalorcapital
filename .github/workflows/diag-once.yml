@@ -5,5 +5,9 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Teste real em producao - gates da pausa noturna
+        run: python3 scripts/one-off/diag-teste-pausa-robo.py
