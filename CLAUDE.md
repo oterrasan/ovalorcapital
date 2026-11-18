@@ -11202,3 +11202,42 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Linhas duplicadas em `config` para `GEMINI_API_KEY*`** — investigar se é recorrência do bug de upsert sem constraint já documentado, se sobrar tempo.
 4. **Gap conhecido em `core/instagram_image.js`** (`TOP_BRAND_ICON_HEIGHT_FRAC` referencia esquema de ícone do Reel que não existe mais) — só revisitar se Roberto reclamar de paridade Feed/Reel de novo.
 5. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 18/11/2026 (continuação) — ✅ CHAVE GEMINI NOVA CONFIRMADA VIVA COM TESTE REAL — PIPELINE DESBLOQUEADO
+
+#### O que aconteceu
+
+Roberto criou um projeto Google Cloud novo e gerou uma chave Gemini nova no AI Studio (`https://aistudio.google.com/app/apikey`), seguindo os links passados. Pra não expor a chave em texto no chat (risco real — o Google revoga chave detectada exposta publicamente), ele inseriu direto no SQL Editor do Supabase (`https://supabase.com/dashboard/project/yntwvfcxjardzafdqanj/sql/new`), substituindo `GEMINI_API_KEY`:
+
+```sql
+DELETE FROM config WHERE key = 'GEMINI_API_KEY';
+INSERT INTO config (key, value) VALUES ('GEMINI_API_KEY', 'a_chave_nova_aqui');
+```
+
+**Confirmado com teste real** (mesmo padrão `diag-once.yml`/`scripts/one-off/`, chamada direta contra `generativelanguage.googleapis.com`, nunca suposição):
+
+```
+GEMINI_API_KEY   -> HTTP 200 (OK) resposta: ok
+GEMINI_API_KEY_3 -> HTTP 200 (OK) resposta: ok
+GEMINI_API_KEY_2 -> HTTP 401 ACCOUNT_STATE_INVALID (ainda morta — mesmo projeto "Politica" suspenso, não trocada)
+```
+
+**Estado real agora**: 2 das 3 chaves funcionando (`GEMINI_API_KEY` e `GEMINI_API_KEY_3`) — suficiente pra `_getGeminiKeys()` (`core/ai_portal.js`) ter capacidade real de novo. `GEMINI_API_KEY_2` continua morta, mas não bloqueia mais nada (o loop de fallback já pula pra próxima chave automaticamente).
+
+**Achado secundário confirmado nesta mesma rodada** (⚠️ ainda não corrigido, só observado no log): a query `config?select=key,value&key=like.GEMINI_API_KEY*` retornou **4 linhas duplicadas** para `GEMINI_API_KEY_2` (mesmo valor morto repetido 4x) — confirma a suspeita já registrada antes sobre recorrência do bug de linhas duplicadas em `config` (upsert sem constraint unique real). Não investigado a fundo ainda — baixa prioridade, já que não está bloqueando nada no momento (as linhas duplicadas são todas o mesmo valor morto, não há ambiguidade de qual usar).
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências atualizadas para a próxima sessão
+
+1. **Confirmar com Roberto, ao longo do dia, que o pipeline voltou a publicar sozinho** — a chave está confirmada viva, mas ainda não foi observado um ciclo real do cron gerando conteúdo com ela.
+2. **Linhas duplicadas de `GEMINI_API_KEY_2` em `config`** (4 linhas, mesmo valor morto) — limpar/investigar o bug de upsert sem constraint, se sobrar tempo. Não é urgente — não está causando ambiguidade nem bloqueio agora.
+3. **`GEMINI_API_KEY_2` continua morta** (projeto "Politica" suspenso) — Roberto pode, se quiser mais margem de cota, repetir o mesmo processo (criar outro projeto Google Cloud + chave nova) pra substituí-la também. Não é crítico agora que há 2 chaves vivas.
+4. Demais pendências de sessões anteriores seguem válidas (gap de `TOP_BRAND_ICON_HEIGHT_FRAC`, lista completa nas entradas anteriores).
