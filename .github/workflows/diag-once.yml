@@ -9,5 +9,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Teste real em producao - gates da pausa noturna
-        run: python3 scripts/one-off/diag-teste-pausa-robo.py
+      - name: Diagnostico - sistema parado as 18h18 BRT
+        run: python3 scripts/one-off/diag-sistema-parado.py
