@@ -11409,3 +11409,47 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. A mesma classe de bug (`force=true` bypassando checagem de horário) pode existir em outras rotas legadas — ver item 2 da entrada anterior, ainda não investigado.
 4. Investigar por que `fofocas`/Giro ficou ~39h sem gerar conteúdo — pendência antiga, ainda não investigada.
 5. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 18/11/2026 (continuação 4) — COLLAB AUTOMÁTICA PRO @oterrasan EM POLÍTICA/ECONOMIA/FINANÇAS/POLÍCIA (OVC + Brasil On)
+
+#### Contexto
+
+Roberto: *"é possível travar o sistema para criar uma nova regra para que o meu Instagram receba collab automática tanto do Brasil On quanto do Valor Capital quando o assunto for política, economia, finanças ou polícia?"*
+
+#### O que foi feito (PRs #894→#897, mergeados em sequência)
+
+- **PR #894** — pausado só o feed automático do Instagram (`IG_AUTOMATION_ENABLED` no OVC, `BON_IG_ENABLED` no Brasil On), confirmado com dado real (`off`/`off`) antes de tocar em código. Não tocou em geração de conteúdo, Reels nem no robô de TikTok — escopo mínimo, só o que a mudança afeta.
+- **PR #895** (`core/instagram.js`, `api/manage.js`, `brasilon/core/instagram.js`, `brasilon/api/manage.js`):
+  - **OVC** — nova `collaboratorForSubject(post)`: retorna `oterrasan` quando `user_tags` inclui política/economia/finanças, ou o título/meta descrição bate `POLICIA_KW` (mesma lista já usada no espelho do Brasil On). Prioridade MENOR que `collaboratorForColunista` (autor nomeado de uma coluna sempre ganha de regra genérica por assunto). `publish()` ganha a tag `feed_subject`, que abre a mesma exceção de aceite+curtida automáticos já usada pra `feed_coluna` (16/11/2026) — **zero mudança em `acceptCollabsForMedia`**, o bypass já acontecia por `tag !== "feed"`. Wired nos 2 pontos reais que publicam feed do OVC (`handleIgPublish` manual e `_publicarPostFeedAutomatico`, automação+fila prioritária).
+  - **Brasil On** — já taggeava `oterrasan` em TODO post (`DEFAULT_COLLABORATORS`, sem condição de assunto); faltava só o aceite automático. `_igPublicarPost` calcula `subjectCollab = post.categoria === "politica" || post.categoria === "policia"` (as únicas 2 das 4 que existem no Brasil On — economia/finanças nunca existem como categoria lá, ver `classificar()`) e passa pra `publish()`, que usa a mesma tag `feed_subject`.
+  - Lógica testada com fixtures reais (import direto do módulo, sem rede): política/economia/finanças/polícia-por-palavra-chave → `oterrasan`; esportes com palavra de crime no texto (não deve contar, mesma exclusão já existente) → `null`; tecnologia → `null`; coluna pessoal + assunto político juntos → coluna ganha. Confirmado antes do merge, não por suposição.
+  - `api/` continua com exatamente 10 arquivos (Regra Zero-A). Reels não tocados — já davam collab+aceite automático pro `oterrasan`, qualquer assunto, desde 30/09/2026.
+- Deploy confirmado com sucesso nos dois projetos (`deploy.yml` e `deploy-brasilon.yml`, mesmo commit) antes de religar qualquer coisa.
+- **PR #896** — religadas as duas automações (`on`/`on`, confirmado com dado real), com uma sanity read (sem efeito colateral) mostrando posts reais recentes com `user_tags` política e `brasilon_posts` com categoria política/polícia — confirma que o formato real dos dados bate com o que a lógica nova espera.
+- **PR #897** — `diag-once.yml` resetado ao placeholder inerte, script temporário removido (convenção padrão do projeto).
+
+#### ⚠️ Nota de transparência
+
+A pausa foi uma precaução pedida por Roberto, não uma necessidade técnica — o deploy da Vercel é atômico (nenhuma requisição vê uma mistura de código antigo/novo), então não havia risco real de inconsistência. Toda a lógica foi validada por teste real local (import do módulo + fixtures) e pelos dois deploys confirmados com sucesso — mas **nenhuma publicação real no Instagram com a tag `feed_subject` foi observada ainda** (depende do próximo post automático de política/economia/finanças/polícia que o pipeline gerar). Isso não foi afirmado como confirmado em produção — só o código, a lógica e o deploy.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/11/2026 continuação 4)
+
+| Sistema | Status |
+|---|---|
+| **`collaboratorForSubject()` (OVC) — política/economia/finanças/polícia → `oterrasan`, com aceite+curtida automáticos (tag `feed_subject`)** | ✅ EM PRODUÇÃO (PR #895) — lógica testada com fixtures reais, deploy confirmado |
+| **Brasil On — aceite automático do `oterrasan` liberado pra categoria política/polícia** | ✅ EM PRODUÇÃO (PR #895) — deploy confirmado |
+| **Feed do Instagram (OVC + Brasil On) pausado durante a mudança, religado depois de confirmar o deploy** | ✅ CONFIRMADO com dado real nos dois PRs (#894 `off`/`off`, #896 `on`/`on`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar em produção, com o próximo post real de política/economia/finanças/polícia**, que o `oterrasan` recebe o convite de collab e que ele é aceito+curtido automaticamente (sem ninguém precisar abrir o app) — nenhuma publicação real com a tag `feed_subject` foi observada ainda, só a lógica/deploy.
+2. Demais pendências de sessões anteriores seguem válidas (janela das 17h do feed do OVC — aguardando resposta de Roberto; pausa 00h-06h cobrindo tudo; `fofocas`/Giro ~39h sem gerar; outras rotas legadas com possível bypass de `force=true`).
