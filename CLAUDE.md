@@ -11335,3 +11335,77 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **A mesma classe de bug (`force=true` bypassando janelaOk()) pode existir em outras rotas legadas** que ainda usam `janelaOk()`/`body.force` (ex: linha ~2259 de `api/run_portal.js`, ação de regeneração) — não investigado nesta sessão, fora do escopo do que foi reportado.
 3. **Investigar por que `fofocas`/Giro ficou ~39h sem gerar conteúdo** — pendência carregada de sessão anterior, ainda não investigada.
 4. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 18/11/2026 (continuação 2) — 🔴🔴🔴 CAUSA RAIZ REAL: ROBÔ DE CAPTURA DE TIKTOK RODANDO 24H SEM GATE (não era só os 8 canais de IA)
+
+#### Contexto
+
+Poucos minutos depois do fix acima, Roberto mandou **print real do admin** (às 04:12 BRT) mostrando 50 matérias automáticas, todas de 18/11/2026 entre 03:36 e 04:11, com vídeo "aguardando você montar"/"Montando Reel": *"claude, caralho! a porra do sistema continua produzindo e gerando reelss!!!!!!!!! nao é pra acontecer isso, o sistema todo deve ser travado nas automacoes no horario que ja mandei!!! o sistema so deve produzir conteudos se forem manuais e se eu FIZER MANUALMENTE"*.
+
+#### Causa raiz real, confirmada com evidência (PRs diagnósticos #888/#889, não suposição)
+
+O fix anterior (`pausaNoturnaAtiva()`) só cobria as 8 funções `autoXxx` de **geração de matéria via IA**. O **robô de captura de TikTok** (`handleMetropolesTiktokRegistrar`/`autoMetropolesTiktok`, 8 perfis: metropolesoficial, g1, reinaldogottino, sbtnews, revista_veja, plenonews, cnnbrasil, profdanuzioneto) é um mecanismo **separado** — só descobre vídeo + enfileira captura, nunca gasta IA — e por isso tinha sido **deliberadamente isento** da pausa noturna em 10/11/2026 ("tire as regras que excluem a captura de videos... a janela não protegia cota nenhuma"). Essa decisão antiga é exatamente o que Roberto está revertendo agora.
+
+Confirmado com dado real (consulta direta ao Supabase): marcas `TIKTOK_ROBO_TT__*` sendo criadas a cada ~15min a noite inteira, e os posts reais do print batendo exatamente com os timestamps (ex: "Papa Leão XIV" criado às 07:09:18 UTC = **04:09:18 BRT**; "Fuga de detentos" às 06:53:34 UTC = **03:53:34 BRT**).
+
+#### Fix (PR #890, mergeado, commit `52df84ac`)
+
+- **`handleMetropolesTiktokRegistrar`** (`api/run_portal.js`) — bloqueia nova descoberta/enqueue com `pausaNoturnaAtiva()`, igual aos outros 8 canais.
+- **`handleLinkJobsPendentes`** (`api/run_portal.js`) — nunca entrega job pro runner durante a pausa (job fica `pending`, nunca marcado "processing", retomado sozinho às 06h) — cobre tanto o robô quanto qualquer link social que Roberto tenha colado e precise do runner pra processar.
+- **`handleReelsRenderJob`** (`api/manage.js`) — ganhou gate automático pela janela 00h-06h BRT, **além** do toggle manual `SISTEMA_LIGADO` que já existia (que é manual, não automático por horário) — a captura/renderização de vídeo pra Reels também para durante a pausa.
+- `pausaNoturnaAtiva()` duplicada verbatim em `api/manage.js` (zero import cruzado, convenção já usada no projeto).
+
+**Verificado end-to-end em produção, ainda dentro da pausa (04:25 BRT)** — os 3 pontos testados direto, retornando `"pausado_madrugada"`/`"sistema_geral_pausado"` reais:
+```
+metropoles_tiktok_registrar -> {"ok":true,"generated":0,"info":"pausado_madrugada"}
+link_jobs_pendentes -> {"ok":true,"count":0,"jobs":[],"info":"pausado_madrugada"}
+reels_render_job -> {"ok":true,"job":null,"reason":"pausado_madrugada"}
+```
+
+Reescrita por Link direta de Roberto (sem `job_key`) continua intocada — só automação foi bloqueada.
+
+---
+
+### Sessão 18/11/2026 (continuação 3) — "SISTEMA PARADO ÀS 18H18, NADA PUBLICANDO NO INSTAGRAM" — NÃO ERA BUG, É O CORTE DE 17H QUE O PRÓPRIO ROBERTO PEDIU EM 01/10/2026
+
+#### Contexto
+
+Horas depois (18:18 BRT), Roberto: *"Claude, o que está acontecendo? Você tem tarefas inacabadas e o sistema está parado, não está gerando nada no Instagram, pelo menos. [...] olhe isso como sua prioridade máxima."*
+
+#### Investigação real (PR #892, diagnóstico completo em produção — config, posts, logs, workflow runs)
+
+Confirmado com evidência real, nenhuma suposição:
+1. **Portal no ar**: `/` → HTTP 200, `/admin` → HTTP 200.
+2. **Pipeline de conteúdo rodando normal**: robô de TikTok continuou capturando a cada ~15min até minutos antes do diagnóstico (21:05 UTC).
+3. **Feed do Instagram publicou normalmente até 16:30 BRT** (`[ig-auto] @ovalorcapital publicado: ...` às 19:00 e 19:15 UTC = 16h/16h15 BRT), depois teve 2 timeouts reais da própria Meta (`"Erro ao criar container: {"error":{"message":"Timeout",...}}"`) às 16h30/16h45 BRT — passageiro, não é a causa do silêncio.
+4. **`.github/workflows/instagram-auto.yml` confirmado rodando perfeitamente a cada 15min** (via `list_workflow_runs`) — 16 runs consecutivos entre 17h04 e 21h19 BRT, quase todos `conclusion:"success"` (só 1 `"failure"`, coincidindo com os timeouts da Meta). **Não é drift/atraso do agendador do GitHub Actions** (causa já documentada várias vezes antes neste projeto) — dessa vez não foi isso.
+5. **🔴 Causa raiz real, achada lendo o próprio código** (`api/manage.js`, `handleIgAutoPublish`): o feed do `@ovalorcapital` tem um **corte fixo às 17h00 BRT**, `IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 17*60`, comentário explícito: *"corte seco às 17:00 BRT, sem pausa"*. E o comentário de código, com data real, mostra que foi **o próprio Roberto quem pediu isso**, em 01/10/2026 de madrugada: *"quero que saia uma publicacao a cada meia hora - das 08h até 17h sem pausas."* Às 18h18 (quando ele reclamou), já passava 1h18 do corte — comportamento 100% esperado, não bug.
+6. **Reels têm janela diferente e mais larga** (`REELS_JANELA_INICIO/FIM_BRT_MIN` = 08h-22h) — continuavam ativos na hora da reclamação, não afetados por esse corte.
+
+**Nada foi alterado no código desta vez** — é um comportamento intencional e documentado, só raramente lembrado. Reportado a Roberto com a pergunta direta: ele quer estender a janela do feed pra além das 17h, ou o corte às 17h continua sendo o que ele quer? **Aguardando resposta — não mudar a janela sem confirmação explícita dele.**
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado nesta continuação 3 — só investigação, nenhum código tocado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/11/2026 continuação 2 e 3)
+
+| Sistema | Status |
+|---|---|
+| **Robô de captura de TikTok (8 perfis) também bloqueado durante a pausa 00h-06h BRT** | ✅ EM PRODUÇÃO (PR #890, commit `52df84ac`) — verificado end-to-end |
+| **`handleLinkJobsPendentes` nunca entrega job pro runner durante a pausa** | ✅ EM PRODUÇÃO |
+| **`handleReelsRenderJob` ganhou gate automático pela janela, além do toggle manual** | ✅ EM PRODUÇÃO |
+| **Causa real do "Instagram parado às 18h18" — corte intencional de 17h00 BRT do feed, pedido pelo próprio Roberto em 01/10/2026** | ✅ CONFIRMADO com evidência real — não é bug, nada corrigido, aguardando decisão dele sobre manter ou estender |
+
+#### 🔧 Pendências para a próxima sessão (atualizado)
+
+1. **Aguardando resposta de Roberto**: estender a janela do feed do Instagram pra além das 17h, ou manter o corte às 17h como está? Não mudar sem confirmação explícita.
+2. Confirmar com Roberto que a pausa 00h-06h agora cobre de fato TUDO (robô TikTok + Reels + os 8 canais de IA) ao longo de um ciclo real completo.
+3. A mesma classe de bug (`force=true` bypassando checagem de horário) pode existir em outras rotas legadas — ver item 2 da entrada anterior, ainda não investigado.
+4. Investigar por que `fofocas`/Giro ficou ~39h sem gerar conteúdo — pendência antiga, ainda não investigada.
+5. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
