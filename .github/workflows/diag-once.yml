@@ -9,5 +9,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Pausar feed automatico do Instagram (OVC + Brasil On)
-        run: python3 scripts/one-off/toggle-ig-feed-pause.py pause
+      - name: Religar feed automatico do Instagram (OVC + Brasil On) + sanity
+        run: python3 scripts/one-off/toggle-ig-feed-pause.py resume

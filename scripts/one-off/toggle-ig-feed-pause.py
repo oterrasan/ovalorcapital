@@ -64,3 +64,25 @@ else:
 print("DEPOIS:")
 print("  IG_AUTOMATION_ENABLED (OVC) =", read_flag("IG_AUTOMATION_ENABLED"))
 print("  BON_IG_ENABLED (Brasil On) =", read_flag("BON_IG_ENABLED"))
+
+if ACTION == "resume":
+    print()
+    print("=== SANITY (so leitura, nao prova que o deploy ja publicou algo) ===")
+    code, posts = req(
+        "GET",
+        "posts?select=id,titulo,user_tags,published_at,ig_id,metrics&status=eq.publicado"
+        "&user_tags=like.*politica*&order=published_at.desc&limit=3",
+    )
+    print("3 posts recentes com user_tags incluindo 'politica' (pra conferir o formato real):")
+    for p in (posts or []):
+        print(" -", p.get("id"), "|", (p.get("titulo") or "")[:60], "| ig_id=", p.get("ig_id"))
+
+    code, bp = req(
+        "GET",
+        "brasilon_posts?select=id,titulo,categoria,published_at&categoria=in.(politica,policia)"
+        "&order=published_at.desc&limit=3",
+    )
+    print()
+    print("3 brasilon_posts recentes com categoria politica/policia:")
+    for p in (bp or []):
+        print(" -", p.get("id"), "|", (p.get("titulo") or "")[:60], "| categoria=", p.get("categoria"))
