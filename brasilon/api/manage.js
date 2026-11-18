@@ -679,7 +679,7 @@ async function _igPublicarPost(post) {
   const caption = buildInstagramCaption(post);
   const { prepareInstagramImage } = await _loadInstagramImage();
   const { publish, postComment, likeMedia, getAccount } = await _loadInstagram();
-  const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
+  const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo, categoria: post.categoria });
   // 18/11/2026 — Roberto: collab automática pro @oterrasan quando o
   // assunto é política ou polícia (economia/finanças nunca existem como
   // categoria aqui — ver classificar()). Mesma lógica de tag usada pelo

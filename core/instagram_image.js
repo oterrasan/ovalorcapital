@@ -12,7 +12,7 @@ const BUCKET = "post-images";
 const PREFIX = "instagram";
 const OVERLAY_PATH = new URL("../public/assets/ig-overlay-ovc-canva.png", import.meta.url);
 const HEADLINE_FONT_PATH = fileURLToPath(new URL("../public/assets/fonts/Inter-Variable.ttf", import.meta.url));
-const HEADLINE_VERSION = "canva-headline-v8-editorial-fit-1440";
+const HEADLINE_VERSION = "canva-headline-v9-category-badge-1440";
 const HEADLINE_BOX = {
   y: px(705),
   width: px(780),
@@ -51,6 +51,96 @@ const IMPACT_WORDS = new Map([
   ["RECUA", 62], ["AVANCA", 62], ["DOLAR", 62], ["JUROS", 62], ["LULA", 70],
   ["BOLSONARO", 70], ["TRUMP", 70], ["STF", 70], ["GOVERNO", 58]
 ]);
+
+// 18/11/2026 — Roberto: "capture a categoria... mediante as categorias do
+// nosso portal... e coloque uma flagzinha na arte... da cor que é
+// política no portal... bem discreto, bem profissional". Cores e labels
+// copiados verbatim de CORES_CAT/CATS em public/js/ovc-cards.js (as
+// cores REAIS já usadas nos cards/menu do portal — nunca inventadas),
+// duplicados aqui de propósito (mesmo padrão já usado no projeto: zero
+// import cruzado entre o client-side e o pipeline server-side).
+const BADGE_LABELS = {
+  "brasil-on": "Brasil On", politica: "Política", economia: "Economia",
+  financas: "Finanças", negocios: "Negócios", tecnologia: "Tecnologia",
+  internacional: "Internacional", industria: "Indústria", familia: "Família",
+  esportes: "Esportes", colunistas: "Colunistas"
+};
+const BADGE_COLORS = {
+  "brasil-on": "#0f172a", politica: "#dc2626", economia: "#2563eb",
+  financas: "#059669", negocios: "#7c3aed", tecnologia: "#6366f1",
+  internacional: "#dc2626", industria: "#ea580c", familia: "#db2777",
+  esportes: "#16a34a", colunistas: "#b8860b"
+};
+// Aliases de categorias legadas/absorvidas → categoria real atual (mesmo
+// mapeamento de normalizeCat()/CAT_PATH em api/portal-posts.js).
+const BADGE_ALIASES = {
+  tributos: "economia", tributacao: "economia", regulacao: "economia",
+  investimentos: "financas", seguros: "financas", mercados: "financas",
+  parcerias: "negocios", vc: "colunistas",
+  saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+  cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+  profissoes: "brasil-on", vagas: "brasil-on", concursos: "brasil-on",
+  investigativo: "brasil-on", seguranca: "brasil-on", variedades: "brasil-on",
+  defesa: "brasil-on", esg: "brasil-on"
+};
+function resolveBadgeCategory(tags) {
+  let list = [];
+  if (Array.isArray(tags)) list = tags;
+  else { try { list = JSON.parse(tags || "[]"); } catch (_) { list = []; } }
+  list = list.map(t => String(t || "").trim().toLowerCase()).filter(Boolean);
+  if (list.includes("colunistas") || list.includes("vc")) return "colunistas";
+  const first = list[0] || "";
+  const canon = BADGE_LABELS[first] ? first : (BADGE_ALIASES[first] || first);
+  return BADGE_LABELS[canon] ? canon : null; // null = assunto sem categoria reconhecida, não desenha nada
+}
+const BADGE_MARGIN_LEFT = px(46);
+// Logo do topo termina em ~px(160) (ver TOP_BRAND_* abaixo) — y=px(200)
+// deixa uma folga clara visível, "distante do logo" (Roberto pediu
+// explicitamente pra não ficar colado nele).
+const BADGE_TOP = px(200);
+const BADGE_FONT_SIZE = px(24);
+const BADGE_PAD_X = px(24);
+const BADGE_PAD_Y = px(12);
+// Sombra discreta atrás da pílula — garante contraste mesmo sobre foto
+// de tom parecido com a cor da categoria (ex.: "Família"/rosa claro ou
+// uma categoria clara sobre céu/concreto claro). Mesmo rect com blur
+// (feGaussianBlur), nunca feDropShadow — mais universalmente suportado
+// pelo librsvg usado por sharp.
+const BADGE_SHADOW_BLUR = px(4);
+const BADGE_SHADOW_OFFSET = px(2);
+async function buildCategoryBadgeLayers(tags) {
+  const cat = resolveBadgeCategory(tags);
+  if (!cat) return [];
+  const label = BADGE_LABELS[cat].toUpperCase();
+  const color = BADGE_COLORS[cat];
+  const textBuf = await sharp({
+    text: {
+      text: `<span foreground="#ffffff" weight="700">${escapeXml(label)}</span>`,
+      font: `Inter ${BADGE_FONT_SIZE}`,
+      fontfile: HEADLINE_FONT_PATH,
+      align: "center", rgba: true, dpi: 72, wrap: "none"
+    }
+  }).png().toBuffer();
+  const meta = await sharp(textBuf).metadata();
+  const textW = meta.width || 0;
+  const textH = meta.height || 0;
+  const pillW = textW + BADGE_PAD_X * 2;
+  const pillH = textH + BADGE_PAD_Y * 2;
+  const radius = Math.round(pillH / 2);
+  const pad = BADGE_SHADOW_BLUR * 3;
+  const canvasW = pillW + pad * 2;
+  const canvasH = pillH + pad * 2;
+  const pillWithShadow = await sharp(Buffer.from(
+    `<svg width="${canvasW}" height="${canvasH}" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${BADGE_SHADOW_BLUR}"/></filter></defs>` +
+    `<rect x="${pad + BADGE_SHADOW_OFFSET}" y="${pad + BADGE_SHADOW_OFFSET}" width="${pillW}" height="${pillH}" rx="${radius}" ry="${radius}" fill="#000000" opacity="0.38" filter="url(#b)"/>` +
+    `<rect x="${pad}" y="${pad}" width="${pillW}" height="${pillH}" rx="${radius}" ry="${radius}" fill="${color}"/></svg>`
+  )).png().toBuffer();
+  return [
+    { input: pillWithShadow, top: BADGE_TOP - pad, left: BADGE_MARGIN_LEFT - pad },
+    { input: textBuf, top: BADGE_TOP + Math.round((pillH - textH) / 2), left: BADGE_MARGIN_LEFT + BADGE_PAD_X }
+  ];
+}
 
 function escapeXml(value) {
   return String(value || "")
@@ -340,7 +430,7 @@ async function downloadImage(url) {
   }
 }
 
-export async function buildInstagramImageBuffer(sourceUrl, { title, bold } = {}) {
+export async function buildInstagramImageBuffer(sourceUrl, { title, bold, tags } = {}) {
   const source = await downloadImage(sourceUrl);
 
   if (bold) {
@@ -399,24 +489,29 @@ export async function buildInstagramImageBuffer(sourceUrl, { title, bold } = {})
   const topBrandTop = Math.round(TOP_BRAND_ICON_TOP_MARGIN_FRAC * H - TOP_BRAND_ICON_TOP_IN_ASSET * topBrandScale);
   const gradient = await buildFeedGradient();
   const headlineLayers = await buildMolduraHeadlineLayers(title);
+  const badgeLayers = await buildCategoryBadgeLayers(tags);
 
   return sharp(photo)
     .composite([
       { input: gradient, top: 0, left: 0 },
       { input: topBrand, top: topBrandTop, left: topBrandLeft },
+      ...badgeLayers,
       ...headlineLayers
     ])
     .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
     .toBuffer();
 }
 
-export async function prepareInstagramImage({ sourceUrl, postId, supabase, title, bold }) {
+export async function prepareInstagramImage({ sourceUrl, postId, supabase, title, bold, tags }) {
   if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) throw new Error("instagram_source_image_invalid");
   if (!postId) throw new Error("instagram_post_id_missing");
 
-  const buffer = await buildInstagramImageBuffer(sourceUrl, { title, bold });
+  const buffer = await buildInstagramImageBuffer(sourceUrl, { title, bold, tags });
+  // inclui a categoria resolvida da flag no hash — se o post trocar de
+  // categoria depois de já ter gerado uma imagem, o cache não fica preso
+  // na flag antiga.
   const hash = crypto.createHash("sha1")
-    .update([HEADLINE_VERSION, bold ? "bold" : "normal", sourceUrl, title || ""].join("\n"))
+    .update([HEADLINE_VERSION, bold ? "bold" : "normal", sourceUrl, title || "", resolveBadgeCategory(tags) || ""].join("\n"))
     .digest("hex")
     .slice(0, 10);
   const path = `${PREFIX}/${postId}-${hash}.jpg`;
