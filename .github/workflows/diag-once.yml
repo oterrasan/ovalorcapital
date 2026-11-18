@@ -5,4 +5,6 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
+      - uses: actions/checkout@v4
+      - name: Diagnostico real do stall de geracao (19h18/11/2026)
+        run: python3 scripts/one-off/diag-stall.py
