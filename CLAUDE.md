@@ -11241,3 +11241,36 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Linhas duplicadas de `GEMINI_API_KEY_2` em `config`** (4 linhas, mesmo valor morto) — limpar/investigar o bug de upsert sem constraint, se sobrar tempo. Não é urgente — não está causando ambiguidade nem bloqueio agora.
 3. **`GEMINI_API_KEY_2` continua morta** (projeto "Politica" suspenso) — Roberto pode, se quiser mais margem de cota, repetir o mesmo processo (criar outro projeto Google Cloud + chave nova) pra substituí-la também. Não é crítico agora que há 2 chaves vivas.
 4. Demais pendências de sessões anteriores seguem válidas (gap de `TOP_BRAND_ICON_HEIGHT_FRAC`, lista completa nas entradas anteriores).
+
+---
+
+### Sessão 18/11/2026 (continuação) — VERIFICAÇÃO COMPLETA NA MADRUGADA (~3h BRT) — TUDO CONFIRMADO SAUDÁVEL + 1 ACHADO REAL: `fofocas`/GIRO PARADO HÁ ~39H
+
+#### Contexto
+
+Roberto pediu pra rodar testes e confirmar que tudo estava OK, lembrando que o sistema desliga todo dia e só volta de manhã — nesse momento eram ~3h BRT, dentro da janela de pausa esperada (00h-06h BRT).
+
+#### O que foi confirmado com evidência real (via `diag-once.yml`/`scripts/one-off/`, workflow one-off resetado ao placeholder depois)
+
+- **Site, admin e Brasil ON no ar**: `https://www.ovalorcapital.com.br/` HTTP 200, `/admin/` HTTP 200, `https://www.obrasilon.com.br/` HTTP 200.
+- **Flags de automação corretas**: `SISTEMA_LIGADO=on`, `AUTOMATION=on`, `BON_IG_ENABLED=on`, `ESPORTES_LIMITE_DIARIO=50`. `REELS_AUTOMATION_ENABLED=on`/`BON_REEL_ENABLED=off` — valores vistos no banco neste instante, não necessariamente a configuração definitiva (o histórico documenta múltiplas trocas desses 2 flags ao longo de setembro).
+- **Chaves Gemini**: `GEMINI_API_KEY` e `GEMINI_API_KEY_3` confirmadas vivas de novo (HTTP 200 real). `GEMINI_API_KEY_2` continua morta (mesmo erro de sempre, projeto "Politica" suspenso) — sem bloquear nada.
+- **Pausa 00h-06h BRT confirmada funcionando como desenhado**: checado os 6 canais de "pauta" (`portal`, `brasilon`, `jovempan_politica`, `internacional`, `economia_mercado`, `fofocas`) — ZERO posts de qualquer um deles desde a última meia-noite BRT (`Content-Range=*/0` em todos). Exatamente o esperado.
+- **Causa real do silêncio das ~13h30-16h30 BRT até a meia-noite (bem antes da pausa)**: confirmado com números reais, não suposição — nas últimas 24h, `brasilon`(19) + `jovempan_politica`(15) + `internacional`(14) + `economia_mercado`(12) somam **exatamente 60** — a fatia de 75% do teto diário de 80 (`OVC_LIMITE_DIARIO_TOTAL`, default do código, sessão 14/11/2026) reservada pras "pautas determinadas". `esportes_radar` teve exatamente 6 nas últimas 24h — bate certinho com a fatia de 30% dos 20% "resto" do mesmo mecanismo. Ou seja: **o teto diário de 80 foi batido ontem bem antes da meia-noite, e o sistema corretamente parou de gerar até o próximo reset** — não é bug, é o mecanismo de cota funcionando exatamente como projetado. Se Roberto quiser mais volume espalhado pelo dia inteiro, o ajuste é subir `OVC_LIMITE_DIARIO_TOTAL` (hoje sem linha em `config`, usa o default 80 do código).
+
+#### 🟡 Achado real, não é da pausa nem da cota — `fofocas`/Giro genuinamente parado
+
+`fofocas` teve **ZERO posts nas últimas 24h** e o último post real é de **2026-11-16T15:17:22 UTC — quase 39 horas antes do diagnóstico**. A cota desse canal é de só 4/dia (fatia de 20% do "resto") — longe de ser o limite, então não é questão de cota esgotada. O canal ficou silencioso atravessando 2 ciclos completos de reset de meia-noite sem produzir nada. **Não investigado a fundo ainda** (fora do escopo desta checagem de madrugada) — precisa olhar o código/candidatos/fonte específica do canal `fofocas` (giro) numa sessão futura.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado — sessão foi só diagnóstico)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências atualizadas para a próxima sessão
+
+1. **Investigar por que `fofocas`/Giro parou de gerar há ~39h** — não é cota (4/dia, nem perto do limite), não é a pausa noturna (o silêncio começou bem antes da meia-noite de 16/11). Checar o canal/fonte de candidatos específico desse tipo de conteúdo.
+2. **Se Roberto quiser mais volume ao longo do dia inteiro**: considerar subir `OVC_LIMITE_DIARIO_TOTAL` (hoje no default de 80 do código) — confirmado que esse teto é batido bem antes da meia-noite em dia de notícia cheia.
+3. Demais pendências de sessões anteriores seguem válidas (linhas duplicadas de `GEMINI_API_KEY_2`, lista completa nas entradas anteriores).
