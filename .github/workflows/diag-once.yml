@@ -9,5 +9,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Diagnostico madrugada
-        run: python3 scripts/one-off/diag-madrugada.py
+      - name: Teste real pos-deploy do gate de pausa noturna
+        run: python3 scripts/one-off/diag-teste-pausa.py
