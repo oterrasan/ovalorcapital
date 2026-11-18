@@ -31,7 +31,7 @@ const W = 1080;
 const H = 1350; // 4:5 — máximo portrait aceito pelo feed do Instagram
 const ICON_PATH = fileURLToPath(new URL("../public/assets/icone-brasil-on.svg", import.meta.url));
 const HEADLINE_FONT_PATH = fileURLToPath(new URL("../public/assets/fonts/Inter-Variable.ttf", import.meta.url));
-const COMPOSITION_VERSION = "bon-raw-yellow-box-v1";
+const COMPOSITION_VERSION = "bon-raw-yellow-box-v2-category-badge";
 
 const YELLOW = "#e6c23c"; // mesmo amarelo do anel do ícone — identidade única
 const BOX = {
@@ -47,6 +47,70 @@ const BOX = {
 };
 const ICON_SIZE = 118;
 const ICON_GAP = 22; // espaço entre a base da caixa amarela e o topo do ícone
+
+// 18/11/2026 — Roberto: "capture a categoria... mediante as categorias
+// do nosso portal, dos nossos portais... coloque uma flagzinha na arte
+// automática... bem discreto, bem profissional". O Brasil On não tem
+// cor própria por categoria (site inteiro usa só a paleta da bandeira) —
+// cores reaproveitadas da categoria equivalente/mais próxima já real no
+// OVC (ver BADGE_COLORS em core/instagram_image.js, raiz): brasil-on e
+// política são literalmente a mesma categoria/cor nos dois portais;
+// futebol usa a cor de esportes do OVC; polícia usa a cor que o OVC já
+// usa pra "segurança" (categoria mais próxima de crime/polícia); giro
+// usa o cinza de fallback padrão do OVC pra categoria sem cor própria
+// (CORES_CAT[x] || '#64748b' em public/js/ovc-cards.js).
+const BADGE_LABELS = {
+  "brasil-on": "Brasil ON", politica: "Política", policia: "Polícia",
+  futebol: "Futebol", giro: "Giro"
+};
+const BADGE_COLORS = {
+  "brasil-on": "#0f172a", politica: "#dc2626", policia: "#7f1d1d",
+  futebol: "#16a34a", giro: "#64748b"
+};
+const BADGE_MARGIN_LEFT = 42;
+const BADGE_TOP = 48; // nada ocupa o topo aqui (ícone+caixa ficam perto da base) — bem distante dos logos
+const BADGE_FONT_SIZE = 26;
+const BADGE_PAD_X = 22;
+const BADGE_PAD_Y = 12;
+// Sombra discreta atrás da pílula — mesma técnica de core/instagram_image.js
+// (raiz, OVC), duplicada aqui de propósito. Garante contraste mesmo sobre
+// foto de tom parecido com a cor da categoria (ex.: "Giro"/cinza sobre
+// céu nublado).
+const BADGE_SHADOW_BLUR = 4;
+const BADGE_SHADOW_OFFSET = 2;
+async function buildCategoryBadgeLayers(categoria) {
+  const cat = String(categoria || "").trim().toLowerCase();
+  if (!BADGE_LABELS[cat]) return [];
+  const label = BADGE_LABELS[cat].toUpperCase();
+  const color = BADGE_COLORS[cat];
+  const textBuf = await sharp({
+    text: {
+      text: `<span foreground="#ffffff" weight="700">${escapeXml(label)}</span>`,
+      font: `Inter ${BADGE_FONT_SIZE}`,
+      fontfile: HEADLINE_FONT_PATH,
+      align: "center", rgba: true, dpi: 72, wrap: "none"
+    }
+  }).png().toBuffer();
+  const meta = await sharp(textBuf).metadata();
+  const textW = meta.width || 0;
+  const textH = meta.height || 0;
+  const pillW = textW + BADGE_PAD_X * 2;
+  const pillH = textH + BADGE_PAD_Y * 2;
+  const radius = Math.round(pillH / 2);
+  const pad = BADGE_SHADOW_BLUR * 3;
+  const canvasW = pillW + pad * 2;
+  const canvasH = pillH + pad * 2;
+  const pillWithShadow = await sharp(Buffer.from(
+    `<svg width="${canvasW}" height="${canvasH}" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${BADGE_SHADOW_BLUR}"/></filter></defs>` +
+    `<rect x="${pad + BADGE_SHADOW_OFFSET}" y="${pad + BADGE_SHADOW_OFFSET}" width="${pillW}" height="${pillH}" rx="${radius}" ry="${radius}" fill="#000000" opacity="0.38" filter="url(#b)"/>` +
+    `<rect x="${pad}" y="${pad}" width="${pillW}" height="${pillH}" rx="${radius}" ry="${radius}" fill="${color}"/></svg>`
+  )).png().toBuffer();
+  return [
+    { input: pillWithShadow, top: BADGE_TOP - pad, left: BADGE_MARGIN_LEFT - pad },
+    { input: textBuf, top: BADGE_TOP + Math.round((pillH - textH) / 2), left: BADGE_MARGIN_LEFT + BADGE_PAD_X }
+  ];
+}
 
 function estimateTextWidth(text, fontSize) {
   // Heurística já calibrada pro projeto (mesma usada em core/instagram_image.js
@@ -176,7 +240,7 @@ async function buildIcon() {
   return sharp(svg).resize(ICON_SIZE, ICON_SIZE).png().toBuffer();
 }
 
-export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
+export async function buildInstagramImageBuffer(sourceUrl, { title, categoria } = {}) {
   const source = await downloadImage(sourceUrl);
 
   // 1. Foto crua, cover fit, preenchendo o card INTEIRO (sem banda/base).
@@ -189,6 +253,7 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
   const box = await buildYellowBox(lines.length, fontSize);
   const text = await buildHeadlineText(lines, fontSize);
   const icon = await buildIcon();
+  const badgeLayers = await buildCategoryBadgeLayers(categoria);
 
   const boxTop = Math.max(0, BOX.bottomAnchor - box.height);
   const boxLeft = Math.round((W - box.width) / 2);
@@ -199,6 +264,7 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
 
   return photo
     .composite([
+      ...badgeLayers,
       { input: box.buffer, top: boxTop, left: boxLeft },
       { input: text.buffer, top: textTop, left: textLeft },
       { input: icon, top: iconTop, left: iconLeft }
@@ -210,11 +276,11 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
 const BUCKET = "post-images";
 const PREFIX = "instagram-brasilon";
 
-export async function prepareInstagramImage({ sourceUrl, postId, supabase, title }) {
+export async function prepareInstagramImage({ sourceUrl, postId, supabase, title, categoria }) {
   if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) throw new Error("instagram_source_image_invalid");
   if (!postId) throw new Error("instagram_post_id_missing");
 
-  const buffer = await buildInstagramImageBuffer(sourceUrl, { title });
+  const buffer = await buildInstagramImageBuffer(sourceUrl, { title, categoria });
   const path = `${PREFIX}/${postId}.jpg`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, {
