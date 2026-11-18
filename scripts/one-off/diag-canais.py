@@ -1,6 +1,7 @@
 import json
 import datetime
 import urllib.request
+import urllib.parse
 
 SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
@@ -37,7 +38,7 @@ for m in canais:
         print(f"{m}: NENHUM POST ENCONTRADO")
 
 print("\n=== TOTAL DE POSTS POR CANAL NAS ULTIMAS 24H ===")
-cutoff = (now_utc - datetime.timedelta(hours=24)).isoformat()
+cutoff = urllib.parse.quote((now_utc - datetime.timedelta(hours=24)).isoformat(), safe="")
 for m in canais:
     req = urllib.request.Request(
         f"{SUPABASE_URL}/rest/v1/posts?select=id&publish_method=eq.{m}&created_at=gte.{cutoff}",
@@ -46,5 +47,35 @@ for m in canais:
     with urllib.request.urlopen(req, timeout=30) as r:
         cr = r.headers.get("Content-Range")
         print(f"{m}: Content-Range={cr}")
+
+print("\n=== FOFOCAS/GIRO — ULTIMOS 5 POSTS (independente de status) ===")
+rows = rest("posts?select=created_at,titulo,status&publish_method=eq.fofocas&order=created_at.desc&limit=5")
+for r in rows:
+    print(r.get("created_at"), "|", r.get("status"), "|", (r.get("titulo") or "")[:60])
+if not rows:
+    print("NENHUM POST ENCONTRADO PARA fofocas EM TODA A HISTORIA")
+
+print("\n=== CONFIG DE LIMITE DIARIO (confirma hipotese de cota esgotada) ===")
+cfg = rest("config?select=key,value&key=in.(OVC_LIMITE_DIARIO_TOTAL,ESPORTES_LIMITE_DIARIO)")
+for c in cfg:
+    print(c.get("key"), "=", c.get("value"))
+if not any(c.get("key") == "OVC_LIMITE_DIARIO_TOTAL" for c in cfg):
+    print("OVC_LIMITE_DIARIO_TOTAL = (nao definido no banco -> usa default do codigo, 80)")
+
+print("\n=== TOTAL DOS 6 CANAIS DE 'PAUTA' (nao-esportes) DESDE A MEIA-NOITE BRT MAIS RECENTE ===")
+now_brt = now_utc - datetime.timedelta(hours=3)
+meia_noite_brt = now_brt.replace(hour=0, minute=0, second=0, microsecond=0)
+meia_noite_utc = meia_noite_brt + datetime.timedelta(hours=3)
+print("meia-noite BRT mais recente, em UTC:", meia_noite_utc.isoformat())
+cutoff_meia_noite = urllib.parse.quote(meia_noite_utc.isoformat(), safe="")
+canais_cota = ["portal", "brasilon", "jovempan_politica", "internacional", "economia_mercado", "fofocas"]
+for m in canais_cota:
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/posts?select=id&publish_method=eq.{m}&created_at=gte.{cutoff_meia_noite}",
+        headers={**HEADERS, "Prefer": "count=exact", "Range": "0-0"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        cr = r.headers.get("Content-Range")
+        print(f"{m} (desde a ultima meia-noite BRT): Content-Range={cr}")
 
 print("\nFIM DO DIAGNOSTICO")
