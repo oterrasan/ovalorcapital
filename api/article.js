@@ -2,14 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-async function writeLog(level, message) {
-  try { await supabase.from('logs').insert({ level, message }); } catch(_) {}
-}
-
+const serverKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = serverKey ? createClient(
+  process.env.SUPABASE_URL || "https://yntwvfcxjardzafdqanj.supabase.co", serverKey
+) : null;
 
 const BASE = "https://www.ovalorcapital.com.br";
 const OG_DEFAULT = `${BASE}/assets/og-default.jpg`;
@@ -224,6 +220,7 @@ export default async function handler(req, res) {
 
     const id8 = idMatch[1].toLowerCase();
     const catKey = SLUG_TO_CAT[String(req.query.cat || "").toLowerCase()] || "politica";
+    if (!supabase) return res.status(503).send("Serviço temporariamente indisponível");
     const row = await findArticle(id8);
     if (!row) return res.status(404).send("not found");
 
@@ -275,7 +272,7 @@ export default async function handler(req, res) {
       publisher: {
         "@type": "Organization",
         name: "O Valor Capital",
-        logo: { "@type": "ImageObject", url: `${BASE}/images/logo-ovc.png` }
+        logo: { "@type": "ImageObject", url: `${BASE}/assets/vc-logo.png` }
       },
       mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
       articleSection: catLabel,
@@ -317,7 +314,7 @@ export default async function handler(req, res) {
       `<meta name="twitter:description" content="${esc(description)}">`,
       `<meta name="twitter:image" content="${esc(image)}">`,
       `<script type="application/ld+json">${safeJson(jsonLd)}</script>`,
-      `<script>window.__OVC_ARTICLE__=${safeJson(preload)};window.SUPABASE_ANON_KEY=${JSON.stringify(SUPABASE_KEY)};</script>`,
+      `<script>window.__OVC_ARTICLE__=${safeJson(preload)};</script>`,
       `<script src="/js/banners.js" defer></script>`
     ].join("\n");
 
@@ -326,7 +323,7 @@ export default async function handler(req, res) {
     html = html.replace(/<title>[\s\S]*?<\/title>/i, "");
     html = html.replace(/<meta\s+name=["']description["'][^>]*>/i, "");
     html = html.replace(/<link\s+rel=["']canonical["'][^>]*>/i, "");
-    html = html.includes("</head>") ? html.replace("</head>", `${seoTags}\n</head>`) : `${seoTags}\n${html}`;
+    html = html.includes("</head>") ? html.replace("</head>", () => `${seoTags}\n</head>`) : `${seoTags}\n${html}`;
 
     // Remove o hero genérico de categoria (H1/texto fixo de template) e
     // injeta o H1/corpo reais do artigo no SSR -- ver comentário acima de
@@ -348,9 +345,15 @@ export default async function handler(req, res) {
       });
       html = html.replace(
         '<div class="ovc-panel" data-hero-card></div>',
-        `<div class="ovc-panel" data-hero-card>${heroHtml}</div>`
+        () => `<div class="ovc-panel" data-hero-card>${heroHtml}</div>`
       );
     } catch (_) {}
+
+    const related = await relatedLinks(row.id, catPath);
+    if (related) {
+      html = html.replace(/(<h3>)Principais notícias(<\/h3><div class="ovc-mini-list" data-main-list>)/,
+        (_, start, end) => start + "Leia também" + end + related);
+    }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
@@ -379,6 +382,34 @@ function serveStaticAsset(req, res) {
   } catch (_) {
     res.status(404).send("static not found");
     return true;
+  }
+}
+
+async function relatedLinks(currentId, section) {
+  try {
+    const { data, error } = await supabase.from("posts")
+      .select("id,titulo,user_tags")
+      .eq("status", "publicado")
+      .or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao")
+      .like("user_tags", `%"${section}"%`)
+      .neq("id", currentId)
+      .order("published_at", { ascending: false })
+      .limit(16)
+      .abortSignal(AbortSignal.timeout(1200));
+    if (error || !data) return "";
+    const titles = new Set();
+    const links = [];
+    for (const post of data) {
+      const title = clean(post.titulo);
+      if (!title || titles.has(title) || CAT_PATH[parseTags(post.user_tags)[0]] !== section) continue;
+      titles.add(title);
+      const url = `/${section}/${slugify(title)}-${post.id.slice(0, 8)}/`;
+      links.push(`<div><a href="${url}">${esc(title)}</a></div>`);
+      if (links.length === 5) break;
+    }
+    return links.join("");
+  } catch {
+    return "";
   }
 }
 
