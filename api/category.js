@@ -331,52 +331,157 @@ const EDITORIAL_SECTIONS = new Set(["politica", "economia", "negocios", "financa
 const FINANCE_TOPICS = new Set(["Renda Fixa", "Bolsa e Ações", "Seguros e Proteção", "Previdência",
   "Fundos e FIIs", "Planejamento Patrimonial", "Criptomoedas"]);
 
-// Rótulos reais das subseções de cada editoria, no padrão atual do menu
-// (slugs modernos, sem os aliases "legado" de SECTION_LABELS acima, que só
-// existem pra resolver URL antiga de ARTIGO, não de página de listagem).
+// 19/11/2026 (correção real, ver histórico) — rótulos das 122 subseções
+// REAIS do menu, extraídas diretamente do HTML da home em produção
+// (não de SECTION_LABELS acima, que estava desatualizada e cobria só
+// 61 das 122 — testar contra a própria tabela parcial mascarava o erro).
+// Confirmado por extração programática do <header> real: exatamente
+// 122 combinações (cat, sub), batendo com os 104 HTTP 400 + 18 HTTP 200
+// observados em produção antes deste fix.
 const SUBSECTIONS = {
   politica: {
-    "bastidores-de-brasilia": "Bastidores de Brasília", "eleicoes-2026": "Eleições 2026",
-    "noticias-24hrs": "Notícias 24hrs", "corrupcao-e-investigacao": "Corrupção & Investigação",
-    "politica-internacional": "Política Internacional", geral: "Geral"
+    "bastidores-de-brasilia": "Bastidores de Brasília",
+    "corrupcao-e-investigacao": "Corrupção e Investigação",
+    "eleicoes-2026": "Eleições 2026",
+    geral: "Geral",
+    judiciario: "Judiciário",
+    legislativo: "Legislativo",
+    "noticias-24hrs": "Notícias 24hrs",
+    "poder-executivo": "Poder Executivo",
+    "politica-internacional": "Política Internacional"
   },
   economia: {
-    "politica-economica": "Política Econômica", "cambio-e-mercados": "Câmbio & Mercados",
-    "pib-e-indicadores": "PIB & Indicadores", tributos: "Tributos", geral: "Geral"
+    "cambio-e-mercados": "Câmbio e Mercados",
+    commodities: "Commodities",
+    "consumo-e-varejo": "Consumo e Varejo",
+    geral: "Geral",
+    inflacao: "Inflação",
+    infraestrutura: "Infraestrutura",
+    "mercado-de-trabalho": "Mercado de Trabalho",
+    "pib-e-indicadores": "PIB e Indicadores",
+    "politica-economica": "Política Econômica",
+    "politica-monetaria": "Política Monetária",
+    "reforma-tributaria": "Reforma Tributária",
+    tributos: "Tributos"
   },
   negocios: {
-    empreendedorismo: "Empreendedorismo", startups: "Startups", gestao: "Gestão",
-    "credito-empresarial": "Crédito Empresarial", geral: "Geral"
+    "comercio-exterior": "Comércio Exterior",
+    "credito-empresarial": "Crédito Empresarial",
+    "economia-criativa": "Economia Criativa",
+    empreendedorismo: "Empreendedorismo",
+    franquias: "Franquias",
+    "fusoes-e-aquisicoes": "Fusões e Aquisições",
+    geral: "Geral",
+    gestao: "Gestão",
+    "lgpd-e-compliance": "LGPD e Compliance",
+    "mercado-de-capitais": "Mercado de Capitais",
+    startups: "Startups",
+    "sustentabilidade-empresarial": "Sustentabilidade Empresarial"
   },
   financas: {
-    "renda-fixa": "Renda Fixa", "bolsa-e-acoes": "Bolsa & Ações",
-    "seguros-e-protecao": "Seguros & Proteção", previdencia: "Previdência",
-    "fundos-e-fiis": "Fundos & FIIs", "planejamento-patrimonial": "Planejamento Patrimonial",
-    criptomoedas: "Criptomoedas", geral: "Geral"
+    "bolsa-e-acoes": "Bolsa e Ações",
+    criptomoedas: "Criptomoedas",
+    dividendos: "Dividendos",
+    "educacao-financeira": "Educação Financeira",
+    "fundos-e-fiis": "Fundos e FIIs",
+    geral: "Geral",
+    "imoveis-como-investimento": "Imóveis como Investimento",
+    "investimentos-internacionais": "Investimentos Internacionais",
+    "planejamento-patrimonial": "Planejamento Patrimonial",
+    previdencia: "Previdência",
+    "renda-fixa": "Renda Fixa",
+    "seguros-e-protecao": "Seguros e Proteção"
   },
   industria: {
-    agronegocio: "Agronegócio", energia: "Energia", construcao: "Construção Civil",
-    logistica: "Logística", geral: "Geral"
+    agronegocio: "Agronegócio",
+    automotivo: "Setor Automotivo",
+    "construcao-civil": "Construção Civil",
+    energia: "Energia",
+    geral: "Geral",
+    "industria-40": "Indústria 4.0",
+    logistica: "Logística",
+    mineracao: "Mineração",
+    "petroleo-e-gas": "Petróleo e Gás"
   },
   tecnologia: {
-    "inteligencia-artificial": "Inteligência Artificial", fintechs: "Fintechs",
-    ciberseguranca: "Cibersegurança", inovacao: "Inovação", geral: "Geral"
+    ciberseguranca: "Cibersegurança",
+    "dados-e-analytics": "Dados e Analytics",
+    fintechs: "Fintechs",
+    geral: "Geral",
+    govtech: "Govtech",
+    healthtech: "Healthtech",
+    inovacao: "Inovação",
+    "inteligencia-artificial": "Inteligência Artificial",
+    "startups-tech": "Startups de Tecnologia",
+    "transformacao-digital": "Transformação Digital"
   },
   esportes: {
-    futebol: "Futebol", basquete: "Basquete", motor: "Motor", tenis: "Tênis",
-    mma: "MMA", volei: "Vôlei", nfl: "NFL", geral: "Geral"
+    atletismo: "Atletismo",
+    ciclismo: "Ciclismo",
+    esports: "eSports",
+    geral: "Geral",
+    golf: "Golfe",
+    hockey: "Hóquei",
+    "luta-e-artes-marciais": "Luta e Artes Marciais",
+    mlb: "Beisebol (MLB)",
+    natacao: "Natação",
+    olimpiadas: "Olimpíadas",
+    rugby: "Rúgbi",
+    "vela-e-nautico": "Vela e Náutico",
+    xadrez: "Xadrez"
   },
   familia: {
-    "orcamento-familiar": "Orçamento Familiar", "educacao-dos-filhos": "Educação dos Filhos",
-    habitacao: "Habitação", sucessao: "Sucessão", geral: "Geral"
+    "criancas-e-adolescentes": "Crianças e Adolescentes",
+    "direito-de-familia": "Direito de Família",
+    "educacao-dos-filhos": "Educação dos Filhos",
+    geral: "Geral",
+    habitacao: "Habitação",
+    "lazer-e-bem-estar": "Lazer e Bem-estar",
+    "orcamento-familiar": "Orçamento Familiar",
+    relacionamentos: "Relacionamentos",
+    "saude-familiar": "Saúde Familiar",
+    sucessao: "Sucessão",
+    "terceira-idade": "Terceira Idade",
+    "viagens-em-familia": "Viagens em Família"
   },
-  giro: { famosos: "Famosos", bastidores: "Bastidores", geral: "Geral" },
+  giro: {
+    bastidores: "Bastidores",
+    famosos: "Famosos",
+    geral: "Geral"
+  },
   internacional: {
-    eua: "Estados Unidos", europa: "Europa", china: "China", geopolitica: "Geopolítica", geral: "Geral"
+    africa: "África",
+    "america-latina": "América Latina",
+    "asia-pacifico": "Ásia-Pacífico",
+    china: "China",
+    "comercio-global": "Comércio Global",
+    "estados-unidos": "Estados Unidos",
+    europa: "Europa",
+    geopolitica: "Geopolítica",
+    geral: "Geral",
+    "organismos-internacionais": "Organismos Internacionais",
+    "oriente-medio": "Oriente Médio",
+    "russia-e-conflitos": "Rússia e Conflitos"
   },
   "brasil-on": {
-    cotidiano: "Cotidiano", consumidor: "Consumidor", "bem-estar": "Bem-estar",
-    "meio-ambiente": "Meio Ambiente", "ciencia-e-inovacao": "Ciência & Inovação", geral: "Geral"
+    "bem-estar": "Bem-estar",
+    "carreira-e-trabalho": "Carreira e Trabalho",
+    "ciencia-e-inovacao": "Ciência e Inovação",
+    "concursos-e-educacao": "Concursos e Educação",
+    consumidor: "Consumidor",
+    cotidiano: "Cotidiano",
+    "cultura-e-lazer": "Cultura e Lazer",
+    "direitos-e-cidadania": "Direitos e Cidadania",
+    "energia-e-sustentabilidade": "Energia e Sustentabilidade",
+    "fe-e-espiritualidade": "Fé e Espiritualidade",
+    geral: "Geral",
+    "habitacao-e-imoveis": "Habitação e Imóveis",
+    "meio-ambiente": "Meio Ambiente",
+    "previdencia-social": "Previdência Social",
+    "saude-e-qualidade-de-vida": "Saúde e Qualidade de Vida",
+    "seguranca-publica": "Segurança Pública",
+    "tecnologia-e-sociedade": "Tecnologia e Sociedade",
+    "transporte-e-mobilidade": "Transporte e Mobilidade"
   }
 };
 

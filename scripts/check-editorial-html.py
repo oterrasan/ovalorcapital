@@ -12,35 +12,98 @@ SECTIONS = {"": "", "politica": "Política", "economia": "Economia", "negocios":
             "internacional": "Internacional", "brasil-on": "Brasil On"}
 BASE = "https://www.ovalorcapital.com.br"
 
-# 19/11/2026 — subseções reais do menu (mesma lista de api/editorial.js:
-# SUBSECTIONS). Antes desta data, 61 dessas 61 URLs (todas, exceto
-# colunistas, que tem rota própria) caíam no catch-all de artigo e
-# devolviam HTTP 400 "invalid slug" — nenhuma tinha rota dedicada.
+# 19/11/2026 — correção real: esta lista era 61, extraída de uma tabela
+# JS interna (SECTION_LABELS) que estava desatualizada — testar contra ela
+# mascarava o erro real. Reconstruída extraindo diretamente os 122 hrefs
+# reais do <header> da home em produção (mesma lista usada em
+# api/category.js: SUBSECTIONS). Confirmado: 104 HTTP 400 + 18 HTTP 200
+# nessas 122 URLs antes deste fix — bate exatamente com o relatado.
 SUBSECTIONS = {
-    "politica": {"bastidores-de-brasilia": "Bastidores de Brasília", "eleicoes-2026": "Eleições 2026",
-                 "noticias-24hrs": "Notícias 24hrs", "corrupcao-e-investigacao": "Corrupção & Investigação",
-                 "politica-internacional": "Política Internacional", "geral": "Geral"},
-    "economia": {"politica-economica": "Política Econômica", "cambio-e-mercados": "Câmbio & Mercados",
-                 "pib-e-indicadores": "PIB & Indicadores", "tributos": "Tributos", "geral": "Geral"},
-    "negocios": {"empreendedorismo": "Empreendedorismo", "startups": "Startups", "gestao": "Gestão",
-                 "credito-empresarial": "Crédito Empresarial", "geral": "Geral"},
-    "financas": {"renda-fixa": "Renda Fixa", "bolsa-e-acoes": "Bolsa & Ações",
-                 "seguros-e-protecao": "Seguros & Proteção", "previdencia": "Previdência",
-                 "fundos-e-fiis": "Fundos & FIIs", "planejamento-patrimonial": "Planejamento Patrimonial",
-                 "criptomoedas": "Criptomoedas", "geral": "Geral"},
-    "industria": {"agronegocio": "Agronegócio", "energia": "Energia", "construcao": "Construção Civil",
-                  "logistica": "Logística", "geral": "Geral"},
-    "tecnologia": {"inteligencia-artificial": "Inteligência Artificial", "fintechs": "Fintechs",
-                   "ciberseguranca": "Cibersegurança", "inovacao": "Inovação", "geral": "Geral"},
-    "esportes": {"futebol": "Futebol", "basquete": "Basquete", "motor": "Motor", "tenis": "Tênis",
-                 "mma": "MMA", "volei": "Vôlei", "nfl": "NFL", "geral": "Geral"},
-    "familia": {"orcamento-familiar": "Orçamento Familiar", "educacao-dos-filhos": "Educação dos Filhos",
-                "habitacao": "Habitação", "sucessao": "Sucessão", "geral": "Geral"},
-    "giro": {"famosos": "Famosos", "bastidores": "Bastidores", "geral": "Geral"},
-    "internacional": {"eua": "Estados Unidos", "europa": "Europa", "china": "China",
-                      "geopolitica": "Geopolítica", "geral": "Geral"},
-    "brasil-on": {"cotidiano": "Cotidiano", "consumidor": "Consumidor", "bem-estar": "Bem-estar",
-                  "meio-ambiente": "Meio Ambiente", "ciencia-e-inovacao": "Ciência & Inovação", "geral": "Geral"},
+    "politica": {
+        "bastidores-de-brasilia": "Bastidores de Brasília", "corrupcao-e-investigacao": "Corrupção e Investigação",
+        "eleicoes-2026": "Eleições 2026", "geral": "Geral",
+        "judiciario": "Judiciário", "legislativo": "Legislativo",
+        "noticias-24hrs": "Notícias 24hrs", "poder-executivo": "Poder Executivo",
+        "politica-internacional": "Política Internacional",
+    },
+    "economia": {
+        "cambio-e-mercados": "Câmbio e Mercados", "commodities": "Commodities",
+        "consumo-e-varejo": "Consumo e Varejo", "geral": "Geral",
+        "inflacao": "Inflação", "infraestrutura": "Infraestrutura",
+        "mercado-de-trabalho": "Mercado de Trabalho", "pib-e-indicadores": "PIB e Indicadores",
+        "politica-economica": "Política Econômica", "politica-monetaria": "Política Monetária",
+        "reforma-tributaria": "Reforma Tributária", "tributos": "Tributos",
+    },
+    "negocios": {
+        "comercio-exterior": "Comércio Exterior", "credito-empresarial": "Crédito Empresarial",
+        "economia-criativa": "Economia Criativa", "empreendedorismo": "Empreendedorismo",
+        "franquias": "Franquias", "fusoes-e-aquisicoes": "Fusões e Aquisições",
+        "geral": "Geral", "gestao": "Gestão",
+        "lgpd-e-compliance": "LGPD e Compliance", "mercado-de-capitais": "Mercado de Capitais",
+        "startups": "Startups", "sustentabilidade-empresarial": "Sustentabilidade Empresarial",
+    },
+    "financas": {
+        "bolsa-e-acoes": "Bolsa e Ações", "criptomoedas": "Criptomoedas",
+        "dividendos": "Dividendos", "educacao-financeira": "Educação Financeira",
+        "fundos-e-fiis": "Fundos e FIIs", "geral": "Geral",
+        "imoveis-como-investimento": "Imóveis como Investimento", "investimentos-internacionais": "Investimentos Internacionais",
+        "planejamento-patrimonial": "Planejamento Patrimonial", "previdencia": "Previdência",
+        "renda-fixa": "Renda Fixa", "seguros-e-protecao": "Seguros e Proteção",
+    },
+    "industria": {
+        "agronegocio": "Agronegócio", "automotivo": "Setor Automotivo",
+        "construcao-civil": "Construção Civil", "energia": "Energia",
+        "geral": "Geral", "industria-40": "Indústria 4.0",
+        "logistica": "Logística", "mineracao": "Mineração",
+        "petroleo-e-gas": "Petróleo e Gás",
+    },
+    "tecnologia": {
+        "ciberseguranca": "Cibersegurança", "dados-e-analytics": "Dados e Analytics",
+        "fintechs": "Fintechs", "geral": "Geral",
+        "govtech": "Govtech", "healthtech": "Healthtech",
+        "inovacao": "Inovação", "inteligencia-artificial": "Inteligência Artificial",
+        "startups-tech": "Startups de Tecnologia", "transformacao-digital": "Transformação Digital",
+    },
+    "esportes": {
+        "atletismo": "Atletismo", "ciclismo": "Ciclismo",
+        "esports": "eSports", "geral": "Geral",
+        "golf": "Golfe", "hockey": "Hóquei",
+        "luta-e-artes-marciais": "Luta e Artes Marciais", "mlb": "Beisebol (MLB)",
+        "natacao": "Natação", "olimpiadas": "Olimpíadas",
+        "rugby": "Rúgbi", "vela-e-nautico": "Vela e Náutico",
+        "xadrez": "Xadrez",
+    },
+    "familia": {
+        "criancas-e-adolescentes": "Crianças e Adolescentes", "direito-de-familia": "Direito de Família",
+        "educacao-dos-filhos": "Educação dos Filhos", "geral": "Geral",
+        "habitacao": "Habitação", "lazer-e-bem-estar": "Lazer e Bem-estar",
+        "orcamento-familiar": "Orçamento Familiar", "relacionamentos": "Relacionamentos",
+        "saude-familiar": "Saúde Familiar", "sucessao": "Sucessão",
+        "terceira-idade": "Terceira Idade", "viagens-em-familia": "Viagens em Família",
+    },
+    "giro": {
+        "bastidores": "Bastidores", "famosos": "Famosos",
+        "geral": "Geral",
+    },
+    "internacional": {
+        "africa": "África", "america-latina": "América Latina",
+        "asia-pacifico": "Ásia-Pacífico", "china": "China",
+        "comercio-global": "Comércio Global", "estados-unidos": "Estados Unidos",
+        "europa": "Europa", "geopolitica": "Geopolítica",
+        "geral": "Geral", "organismos-internacionais": "Organismos Internacionais",
+        "oriente-medio": "Oriente Médio", "russia-e-conflitos": "Rússia e Conflitos",
+    },
+    "brasil-on": {
+        "bem-estar": "Bem-estar", "carreira-e-trabalho": "Carreira e Trabalho",
+        "ciencia-e-inovacao": "Ciência e Inovação", "concursos-e-educacao": "Concursos e Educação",
+        "consumidor": "Consumidor", "cotidiano": "Cotidiano",
+        "cultura-e-lazer": "Cultura e Lazer", "direitos-e-cidadania": "Direitos e Cidadania",
+        "energia-e-sustentabilidade": "Energia e Sustentabilidade", "fe-e-espiritualidade": "Fé e Espiritualidade",
+        "geral": "Geral", "habitacao-e-imoveis": "Habitação e Imóveis",
+        "meio-ambiente": "Meio Ambiente", "previdencia-social": "Previdência Social",
+        "saude-e-qualidade-de-vida": "Saúde e Qualidade de Vida", "seguranca-publica": "Segurança Pública",
+        "tecnologia-e-sociedade": "Tecnologia e Sociedade", "transporte-e-mobilidade": "Transporte e Mobilidade",
+    },
 }
 
 
