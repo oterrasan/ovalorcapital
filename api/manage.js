@@ -2315,11 +2315,33 @@ async function handleReelsRenderJob(req, res, body) {
   // ação específica de Roberto em um Reel (essas são reels_set_source/
   // reels_set_layout/reels_aprovar/reels_publish, ações próprias, não
   // tocadas por este gate) — então bloquear aqui sempre é seguro.
+  // 19/11/2026 — Roberto, furioso, com evidência real (vídeos editados por ele
+  // há 5h continuavam em "processing"/"pending" sem avançar): "A PAUSA DO
+  // SISTEMA NAO DEVE INTERFERIR ACOES MANUAIS COMO ESTAS, EU AVISEI VOCE".
+  // Causa raiz real confirmada (query direta em produção): 5 posts com
+  // metrics.instagram_reel_template.priority_at setado por reels_set_layout
+  // (edição manual dele) ficaram parados em status "pending" por horas,
+  // atravessando a janela 00h-06h BRT inteira — pausaNoturnaAtiva() bloqueava
+  // ESTE caso exatamente como bloqueia uma varredura automática de rotina,
+  // sem nenhuma distinção. `soPrioridade` (lido aqui, ANTES dos 2 gates, não
+  // só depois no filtro de elegibilidade) é o sinal real e já existente de
+  // que esta chamada é a "rodada prioridade" disparada na hora por
+  // handleReelsSetLayout (ver _dispatchReelsWorkflowAgora/instagram-auto.yml,
+  // grupo "-prioridade") — nunca a varredura automática de 10 em 10 min.
+  // Fix: só a pausa AUTOMÁTICA noturna abre exceção pra isso. O Interruptor
+  // Geral (sistemaGeralLigado) continua absoluto, sem exceção nenhuma — foi
+  // desenhado por Roberto, nas próprias palavras dele (14/11/2026), pra
+  // parar "TODO O SISTEMA, TUDO!" quando ele mesmo decide desligar — isso
+  // nunca foi o alvo da reclamação de agora, que é especificamente sobre "a
+  // pausa" (o gate automático por horário), não sobre o botão manual.
+  const soPrioridadeGate = body?.prioridade === true;
   if (!(await sistemaGeralLigado())) return res.status(200).json({ ok: true, job: null, reason: "sistema_geral_pausado" });
   // 18/11/2026 — gate automático pela janela 06h-00h BRT (ver comentário em
   // pausaNoturnaAtiva() acima) — além do toggle manual, nunca inicia uma
-  // nova captura/render de Reel durante a pausa noturna.
-  if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, job: null, reason: "pausado_madrugada" });
+  // nova captura/render de Reel durante a pausa noturna. EXCETO quando é a
+  // rodada de prioridade de uma edição manual de Roberto (ver comentário
+  // acima, 19/11/2026) — essa nunca pode ficar presa esperando até 06h.
+  if (!soPrioridadeGate && pausaNoturnaAtiva()) return res.status(200).json({ ok: true, job: null, reason: "pausado_madrugada" });
 
   // 21/09/2026 — 🔴 causa raiz real confirmada com dado de produção (13.887
   // posts têm updated_at mais antigo que um vídeo pendente de 9h atrás, e
@@ -2372,7 +2394,7 @@ async function handleReelsRenderJob(req, res, body) {
   // Pedido feito por ele no admin (priority_at) passa na frente de tudo, e
   // a rodada "prioridade" (disparada na hora pelo reels_set_layout) só
   // pega esses pedidos.
-  const soPrioridade = body?.prioridade === true;
+  const soPrioridade = soPrioridadeGate; // mesmo valor já lido no topo da função (19/11/2026), reaproveitado aqui
   const elegiveis = (candidates || [])
     .map((post) => ({ post, template: _reelsTemplate(post.metrics) }))
     .filter(({ template }) => {
