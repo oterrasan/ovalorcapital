@@ -541,6 +541,15 @@ async function handleEditorial(req, res) {
     const canonical = BASE + "/" + section + "/" + sub + "/";
     const template = await readFile(join(process.cwd(), "public", section, "index.html"), "utf8");
     const $ = load(template);
+    // 19/11/2026 — causa real comprovada (Work): o template estático já
+    // carrega internal-page-v2.js (fluxo antigo ?cat=X&s=Y) com
+    // data-category/data-section hardcoded. Sem este marcador, aquele
+    // script reescreve TODO o <main> no cliente (orcMain.innerHTML),
+    // apagando o H1 real que injetamos abaixo e trocando a listagem
+    // filtrada por subseção por um feed genérico da categoria-mãe (ele só
+    // reconhece subseção via ?s= na query, nunca via path). Ver fix no
+    // próprio internal-page-v2.js (early-return neste atributo).
+    $("body").attr("data-editorial-ssr", "1");
     // rótulo da editoria-mãe, lido do <title> original do template estático
     // (já confirmado correto pra todas as 11 categorias) — usado no badge/
     // temp pra dar contexto de hierarquia, enquanto o H1 fica específico da
@@ -570,6 +579,7 @@ async function handleEditorial(req, res) {
 
   const template = await readFile(join(process.cwd(), "public", section, "index.html"), "utf8");
   const $ = load(template);
+  $("body").attr("data-editorial-ssr", "1");
   const canonical = BASE + (section ? "/" + section + "/" : "/");
   $('link[rel="canonical"]').remove();
   $("<link>").attr({ rel: "canonical", href: canonical }).appendTo("head");
