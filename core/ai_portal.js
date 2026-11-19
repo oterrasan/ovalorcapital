@@ -898,6 +898,18 @@ export async function rewriteMicroPilula(text, title, context = '') {
 // presa). Roberto Terrasan, 11/08/2026, com exemplo real em mãos: "é só reescrever
 // corretamente de maneira simples com o padrao ovc" — ou seja, reescrita fiel ao
 // TAMANHO da fonte (sem inflar, sem inventar, sem forçar estrutura longa).
+//
+// 19/11/2026 — CATEGORIA: adicionada ao formato de saída. Roberto, furioso, com
+// prints reais do admin: conteúdo capturado pelo robô de TikTok (handleLinkManual,
+// api/run_portal.js) sempre saía com a categoria da CONTA de origem no mapa
+// TIKTOK_ROBO_CONTAS (ex: @reinaldogottino → sempre "esportes"), mesmo quando o
+// vídeo não tinha nada a ver com esporte — confirmado real: "Criança de 7 anos é
+// esquecida dentro de avião" e "Capivara é resgatada..." (ambos de
+// @reinaldogottino) foram publicados como esportes/Futebol. O kernel nunca pedia
+// categoria, então handleLinkManual() nunca tinha como saber o assunto real — só
+// o palpite por conta. Usado só pro conteúdo descoberto pelo robô (nenhuma escolha
+// humana envolvida); submissão manual de Roberto continua respeitando a categoria
+// que ele escolhe de propósito no admin — ver handleLinkManual().
 const BRASILON_KERNEL = `Você é editor de notícias curtas do Brasil ON, a divisão popular do O Valor Capital.
 
 MISSÃO: reescrever o texto-fonte abaixo com palavras 100% próprias, mantendo os MESMOS fatos e a MESMA extensão aproximada do original — nunca copie frases da fonte, mas também não estenda, não infle, não invente detalhes que não estão nela. Fonte com 2 frases gera resultado com 2-4 frases. Fonte com 10 parágrafos gera resultado com 10 parágrafos.
@@ -913,6 +925,7 @@ REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
 - HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
 
 FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+CATEGORIA: [uma de: brasil-on|politica|economia|investimentos|negocios|tecnologia|internacional|industria|familia|esportes — a categoria real do ASSUNTO da matéria, nunca o canal/perfil de onde o vídeo veio. "esportes" SOMENTE se o fato em si for sobre competição, atleta, time, campeonato ou evento esportivo — uma criança esquecida em avião, um animal resgatado ou um tema de tecnologia NÃO são esportes só porque vieram de um perfil que normalmente posta sobre esportes]
 TITULO: [direto, sem clickbait, até 100 caracteres]
 META_TITLE: [até 55 caracteres]
 SLUG: [url-com-hifens]
