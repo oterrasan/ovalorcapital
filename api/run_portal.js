@@ -1574,18 +1574,160 @@ async function enfileirarReelBacciSeHouver(postId, urlMateria) {
   await enfileirarReelSeHouver(postId, video, "brasilon");
 }
 
+// 19/11/2026 — Terrasan determinou execução (a pedido do Work): classificação
+// REAL de subcategoria nos 5 canais automáticos abaixo (Brasil ON, Jovem Pan
+// Política, Internacional, Economia/Mercado/Finanças), usando a MESMA
+// taxonomia real das 122 subseções do menu que api/category.js (handleEditorial,
+// SUBSECTIONS) já serve nas páginas — cópia intencional, zero import cruzado
+// (mesma convenção já usada neste arquivo pra core/brasilonMirror.js duplicar
+// classificar()). Work está com a parte de api/category.js; este arquivo NÃO
+// foi tocado.
+//
+// Causa real que isto corrige (confirmado em produção, 19/11/2026 — ver PR
+// #903): estes 5 canais sempre hardcodavam subcategoria_slug igual à própria
+// categoria-mãe (ex: financas→"financas", internacional→"internacional"), ou
+// um valor fixo sem relação com o menu (giro→"geral", EXCLUÍDO desta correção
+// de propósito, ver abaixo). Resultado: 0 de 40 posts recentes em cada uma
+// dessas 5 categorias batiam com qualquer subseção real — toda subseção
+// (ex: /financas/renda-fixa/) sempre cai no fallback de lista geral do
+// api/category.js, inclusive com matéria fora de tema (ex: perfil de chef,
+// cobertura de ciclismo, ambos vindos do canal economia_mercado/financas).
+//
+// REGRA (Work: "sem forçar enquadramentos"): casa por palavra-chave real
+// contra o título+corpo JÁ REESCRITO pela IA — zero chamada de IA nova, zero
+// mudança de prompt/kernel (Regra Zero-B respeitada), zero mudança de
+// volume/cron. Se nenhuma subseção bater com confiança, cai em "geral" —
+// slug real e válido em TODAS as 122 subseções do menu (confirmado), nunca
+// um valor inventado.
+//
+// ESPORTES (esportes_radar/salvarEsportesRadar) e GIRO (salvarFofocas) foram
+// DELIBERADAMENTE EXCLUÍDOS desta correção:
+// - esportes_radar usa a taxonomia PRÓPRIA e anterior do Radar do Esporte
+//   (futebol/nfl/tenis/basquete/mma/...), consumida por 2 integrações reais
+//   já funcionando: páginas dedicadas (/motor/, /tenis/, /mma/, etc.) e o
+//   DE-PARA Brasil ON (core/brasilonMirror.js, linha ~89,
+//   `post.subcategoria_slug === "futebol"`) — mudar isso quebraria as duas.
+// - giro (3 subseções: bastidores/famosos/geral) já tinha "geral" como
+//   único valor usado, que É um slug real e válido — não foi reportado como
+//   quebrado (diferente dos 5 acima, que usavam valor sem relação com o
+//   menu) — fora do escopo de "canais identificados" desta execução.
+function _normKw(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/\p{Mn}/gu, "");
+}
+
+const SUBSECOES_REAIS = {
+  politica: [
+    ["corrupcao-e-investigacao", "Corrupção e Investigação", ["corrupção", "operação da polícia federal", "lava jato", "propina", "desvio de recursos públicos", "delação premiada", "inquérito policial"]],
+    ["judiciario", "Judiciário", ["supremo tribunal federal", "stf", "superior tribunal de justiça", "stj", "ministro do supremo", "julgamento no supremo", "habeas corpus", "tribunal de justiça"]],
+    ["legislativo", "Legislativo", ["câmara dos deputados", "senado federal", "projeto de lei", "deputado federal", "senador", "medida provisória", "plenário do senado", "comissão da câmara"]],
+    ["eleicoes-2026", "Eleições 2026", ["eleições 2026", "eleição 2026", "candidatura à presidência", "pesquisa eleitoral", "segundo turno", "primeiro turno", "campanha eleitoral", "tse"]],
+    ["politica-internacional", "Política Internacional", ["política externa brasileira", "relações exteriores", "itamaraty", "diplomacia brasileira", "chanceler brasileiro"]],
+    ["poder-executivo", "Poder Executivo", ["presidente da república", "palácio do planalto", "ministério da", "governo federal", "decreto presidencial", "casa civil"]],
+    ["bastidores-de-brasilia", "Bastidores de Brasília", ["bastidores de brasília", "nos bastidores do governo", "bastidores do congresso", "bastidores do planalto"]],
+  ],
+  economia: [
+    ["politica-monetaria", "Política Monetária", ["taxa selic", "copom", "taxa de juros", "banco central do brasil", "política monetária"]],
+    ["inflacao", "Inflação", ["inflação", "ipca", "igp-m", "índice de preços", "alta de preços", "custo de vida"]],
+    ["pib-e-indicadores", "PIB e Indicadores", ["pib", "produto interno bruto", "crescimento econômico", "indicadores econômicos", "ibge"]],
+    ["politica-economica", "Política Econômica", ["política econômica", "ministério da fazenda", "ajuste fiscal", "arcabouço fiscal", "meta fiscal", "déficit público", "superávit"]],
+    ["reforma-tributaria", "Reforma Tributária", ["reforma tributária", "imposto sobre valor agregado", "ibs", "cbs"]],
+    ["tributos", "Tributos", ["imposto de renda", "irpf", "irpj", "carga tributária", "sonegação fiscal"]],
+    ["mercado-de-trabalho", "Mercado de Trabalho", ["desemprego", "mercado de trabalho", "taxa de desocupação", "caged", "carteira assinada", "geração de empregos"]],
+    ["cambio-e-mercados", "Câmbio e Mercados", ["dólar", "câmbio", "ibovespa", "bolsa de valores", "mercado financeiro", "b3"]],
+    ["commodities", "Commodities", ["commodities", "preço do barril de petróleo", "minério de ferro", "preço da soja", "preço do milho"]],
+    ["consumo-e-varejo", "Consumo e Varejo", ["varejo", "consumo das famílias", "vendas no varejo", "comércio varejista"]],
+    ["infraestrutura", "Infraestrutura", ["infraestrutura", "obras públicas", "concessão de infraestrutura", "saneamento básico"]],
+  ],
+  financas: [
+    ["renda-fixa", "Renda Fixa", ["renda fixa", "tesouro direto", "cdb", "lci", "lca", "caderneta de poupança"]],
+    ["bolsa-e-acoes", "Bolsa e Ações", ["bolsa de valores", "ibovespa", "ações da", "b3", "ipo"]],
+    ["criptomoedas", "Criptomoedas", ["bitcoin", "criptomoeda", "ethereum", "blockchain", "cripto"]],
+    ["dividendos", "Dividendos", ["dividendos", "proventos", "jcp", "juros sobre capital próprio", "dividend yield"]],
+    ["fundos-e-fiis", "Fundos e FIIs", ["fundo imobiliário", "fii", "fundos de investimento", "cota do fundo"]],
+    ["previdencia", "Previdência", ["previdência privada", "previdência complementar", "aposentadoria", "inss", "plano de previdência"]],
+    ["seguros-e-protecao", "Seguros e Proteção", ["seguro de vida", "seguro residencial", "seguro auto", "apólice de seguro", "seguradora"]],
+    ["planejamento-patrimonial", "Planejamento Patrimonial", ["planejamento patrimonial", "sucessão patrimonial", "holding familiar", "testamento"]],
+    ["investimentos-internacionais", "Investimentos Internacionais", ["investir no exterior", "ações americanas", "etf internacional", "investimento offshore"]],
+    ["imoveis-como-investimento", "Imóveis como Investimento", ["investir em imóveis", "fundo imobiliário", "aluguel como renda", "valorização imobiliária"]],
+    ["educacao-financeira", "Educação Financeira", ["educação financeira", "finanças pessoais", "como investir", "orçamento doméstico"]],
+  ],
+  internacional: [
+    ["russia-e-conflitos", "Rússia e Conflitos", ["rússia", "guerra na ucrânia", "putin", "kremlin"]],
+    ["oriente-medio", "Oriente Médio", ["israel", "irã", "arábia saudita", "oriente médio", "faixa de gaza", "palestina"]],
+    ["china", "China", ["china", "pequim", "partido comunista chinês"]],
+    ["estados-unidos", "Estados Unidos", ["estados unidos", "eua", "washington", "casa branca", "congresso americano"]],
+    ["europa", "Europa", ["união europeia", "ue", "alemanha", "frança", "reino unido", "itália"]],
+    ["america-latina", "América Latina", ["argentina", "chile", "colômbia", "venezuela", "uruguai", "américa latina", "mercosul"]],
+    ["asia-pacifico", "Ásia-Pacífico", ["japão", "coreia do sul", "austrália", "índia", "sudeste asiático"]],
+    ["africa", "África", ["áfrica do sul", "nigéria", "egito", "continente africano", "união africana"]],
+    ["comercio-global", "Comércio Global", ["comércio internacional", "tarifas de importação", "guerra comercial", "organização mundial do comércio"]],
+    ["organismos-internacionais", "Organismos Internacionais", ["nações unidas", "onu", "fundo monetário internacional", "fmi", "banco mundial"]],
+    ["geopolitica", "Geopolítica", ["geopolítica", "tensão geopolítica", "otan"]],
+  ],
+  "brasil-on": [
+    ["seguranca-publica", "Segurança Pública", ["segurança pública", "violência urbana", "polícia militar", "criminalidade"]],
+    ["saude-e-qualidade-de-vida", "Saúde e Qualidade de Vida", ["saúde pública", "sus", "hospital", "vacina", "tratamento médico"]],
+    ["previdencia-social", "Previdência Social", ["inss", "aposentadoria pelo inss", "benefício previdenciário", "auxílio-doença"]],
+    ["habitacao-e-imoveis", "Habitação e Imóveis", ["minha casa minha vida", "financiamento imobiliário", "aluguel residencial"]],
+    ["concursos-e-educacao", "Concursos e Educação", ["concurso público", "edital de concurso", "enem", "vestibular"]],
+    ["carreira-e-trabalho", "Carreira e Trabalho", ["mercado de trabalho", "carreira profissional", "vaga de emprego", "home office"]],
+    ["consumidor", "Consumidor", ["direitos do consumidor", "procon", "reclamação de consumidor", "golpe ao consumidor"]],
+    ["meio-ambiente", "Meio Ambiente", ["meio ambiente", "desmatamento", "mudança climática", "poluição"]],
+    ["energia-e-sustentabilidade", "Energia e Sustentabilidade", ["energia solar", "energia renovável", "sustentabilidade", "transição energética"]],
+    ["transporte-e-mobilidade", "Transporte e Mobilidade", ["transporte público", "mobilidade urbana", "trânsito", "metrô", "ônibus"]],
+    ["tecnologia-e-sociedade", "Tecnologia e Sociedade", ["inteligência artificial", "redes sociais", "tecnologia no cotidiano"]],
+    ["ciencia-e-inovacao", "Ciência e Inovação", ["pesquisa científica", "descoberta científica", "inovação tecnológica"]],
+    ["direitos-e-cidadania", "Direitos e Cidadania", ["direitos humanos", "cidadania", "direitos civis", "discriminação"]],
+    ["fe-e-espiritualidade", "Fé e Espiritualidade", ["igreja", "religião", "espiritualidade", "templo religioso", "pastor", "padre"]],
+    ["cultura-e-lazer", "Cultura e Lazer", ["show de música", "exposição de arte", "evento cultural", "festival", "cinema nacional", "turismo"]],
+    ["bem-estar", "Bem-estar", ["bem-estar", "qualidade de vida", "saúde mental", "autocuidado"]],
+  ],
+};
+
+// Nunca força: sem match de palavra-chave real, cai em "geral" (slug válido
+// em todas as 122 subseções). titulo/corpoHtml = texto JÁ reescrito pela IA
+// (zero chamada nova). Retorna {slug, label} — label pra popular a coluna
+// subcategoria (texto humano), igual ao resto deste arquivo já faz.
+//
+// 2 camadas (título primeiro, corpo só em 2º lugar) — achado real testando
+// com matéria publicada de verdade (19/11/2026): checar só o texto inteiro
+// de uma vez deixava uma menção LATERAL no meio do corpo (ex: "Estados
+// Unidos e Reino Unido já tentaram acordos semelhantes" dentro de matéria
+// sobre a UE/Ruanda; "a diferença da poupança" dentro de matéria sobre
+// Ibovespa/dólar) vencer só por aparecer antes na ordem do array, mesmo sem
+// ser o tema real. O título é o sinal forte e confiável (os 5 kernels
+// exigem "TITULO: [direto, sem clickbait]" — reflete o assunto real, quase
+// nunca menção de passagem) — casa primeiro só nele; se nada bater,
+// só então cai pro corpo inteiro como segundo recurso.
+function _casaSubsecao(lista, texto) {
+  for (const [slug, label, palavras] of lista) {
+    if (palavras.some(p => texto.includes(" " + _normKw(p) + " "))) return { slug, label };
+  }
+  return null;
+}
+function classificarSubsecaoReal(categoria, titulo, corpoHtml) {
+  const lista = SUBSECOES_REAIS[categoria];
+  if (!lista) return { slug: "geral", label: "Geral" };
+  const textoTitulo = " " + _normKw(String(titulo || "")) + " ";
+  const porTitulo = _casaSubsecao(lista, textoTitulo);
+  if (porTitulo) return porTitulo;
+  const textoCompleto = " " + _normKw(String(titulo || "") + " " + plain(corpoHtml)) + " ";
+  return _casaSubsecao(lista, textoCompleto) || { slug: "geral", label: "Geral" };
+}
+
 async function salvarBrasilOn(content, hash, img, fonte) {
   const titulo = stripTitle(content.titulo);
   const comentario_fixado = (content.meta_descricao || "").trim();
   const metaTitle = stripTitle(content.meta_title || content.titulo);
   const publishedAt = new Date().toISOString();
+  const classif = classificarSubsecaoReal("brasil-on", titulo, content.corpo);
   const { data, error } = await supabase.from("posts").insert({
     titulo, conteudo: content.corpo,
     comentario_fixado, imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "brasilon",
     published_at: publishedAt,
-    user_tags: JSON.stringify(["brasil-on"]), subcategoria: "Brasil ON",
-    subcategoria_slug: "brasil-on", collaborators: "[]",
+    user_tags: JSON.stringify(["brasil-on"]), subcategoria: classif.label,
+    subcategoria_slug: classif.slug, collaborators: "[]",
     tipo_conteudo: "padrao",
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
@@ -1832,13 +1974,14 @@ async function salvarJovempanPolitica(content, hash, img, fonte) {
   const comentario_fixado = (content.meta_descricao || "").trim();
   const metaTitle = stripTitle(content.meta_title || content.titulo);
   const publishedAt = new Date().toISOString();
+  const classif = classificarSubsecaoReal("politica", titulo, content.corpo);
   const { data, error } = await supabase.from("posts").insert({
     titulo, conteudo: content.corpo,
     comentario_fixado, imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "jovempan_politica",
     published_at: publishedAt,
-    user_tags: JSON.stringify(["politica"]), subcategoria: "Política",
-    subcategoria_slug: "politica", collaborators: "[]",
+    user_tags: JSON.stringify(["politica"]), subcategoria: classif.label,
+    subcategoria_slug: classif.slug, collaborators: "[]",
     tipo_conteudo: "padrao",
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
@@ -1931,24 +2074,27 @@ async function autoJovempanPolitica(req, res, rec) {
 // INTERNACIONAL — 13/08/2026, Roberto Terrasan: mesma estrutura do Brasil
 // ON/Bacci e Jovem Pan Política. Fontes: BBC News + CNN International (ver
 // core/internacional.js). "internacional cobre tudo o que for
-// internacional, sem restrição de temas" — por isso não força nenhuma
-// subcategoria além de "Internacional" em si (diferente de Jovem Pan
-// Política, que trava em "Política").
+// internacional, sem restrição de temas" — nunca restringe QUAL FONTE/TEMA
+// é aceito, mas a partir de 19/11/2026 (Terrasan, ver classificarSubsecaoReal)
+// classifica de verdade em qual das 12 subseções reais do menu a matéria já
+// reescrita se encaixa, sem forçar: sem keyword batendo, cai em "Geral".
 async function salvarInternacional(content, hash, img, fonte) {
+  const titulo = stripTitle(content.titulo);
+  const classif = classificarSubsecaoReal("internacional", titulo, content.corpo);
   const { data, error } = await supabase.from("posts").insert({
-    titulo: stripTitle(content.titulo), conteudo: content.corpo,
+    titulo, conteudo: content.corpo,
     comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "internacional",
     published_at: new Date().toISOString(),
-    user_tags: JSON.stringify(["internacional"]), subcategoria: "Internacional",
-    subcategoria_slug: "internacional", collaborators: "[]",
+    user_tags: JSON.stringify(["internacional"]), subcategoria: classif.label,
+    subcategoria_slug: classif.slug, collaborators: "[]",
     tipo_conteudo: "padrao",
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  await pingIndexingForPost(data.id, content.titulo, "internacional");
-  return { id: data.id, titulo: stripTitle(content.titulo) };
+  await pingIndexingForPost(data.id, titulo, "internacional");
+  return { id: data.id, titulo };
 }
 
 async function autoInternacional(req, res, rec) {
@@ -2033,21 +2179,22 @@ async function autoInternacional(req, res, rec) {
 // "financas" (ver item.categoria em core/economia.js).
 async function salvarEconomia(content, hash, img, fonte, categoria) {
   const cat = categoria === "financas" ? "financas" : "economia";
-  const sub = cat === "financas" ? "Finanças" : "Economia";
+  const titulo = stripTitle(content.titulo);
+  const classif = classificarSubsecaoReal(cat, titulo, content.corpo);
   const { data, error } = await supabase.from("posts").insert({
-    titulo: stripTitle(content.titulo), conteudo: content.corpo,
+    titulo, conteudo: content.corpo,
     comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "economia_mercado",
     published_at: new Date().toISOString(),
-    user_tags: JSON.stringify([cat]), subcategoria: sub,
-    subcategoria_slug: cat, collaborators: "[]",
+    user_tags: JSON.stringify([cat]), subcategoria: classif.label,
+    subcategoria_slug: classif.slug, collaborators: "[]",
     tipo_conteudo: "padrao",
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  await pingIndexingForPost(data.id, content.titulo, cat);
-  return { id: data.id, titulo: stripTitle(content.titulo) };
+  await pingIndexingForPost(data.id, titulo, cat);
+  return { id: data.id, titulo };
 }
 
 async function autoEconomia(req, res, rec) {
