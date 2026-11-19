@@ -1,6 +1,8 @@
 import { readFileSync } from "fs";
+import { readFile } from "node:fs/promises";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
+import { load } from "cheerio";
 import articleHandler from "./article.js";
 
 const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
@@ -311,6 +313,188 @@ function normalizeCategoryLayout(html, cat, label, desc, section) {
   return html;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// 19/11/2026 — "editorial": SSR real da home + das 11 editorias + de suas
+// subseções, com título/canonical/JSON-LD/links de matéria de verdade
+// injetados no HTML (não só via fetch client-side). Antes desta data isso
+// vivia num arquivo separado (api/editorial.js, criado no PR #903) — foi
+// fundido aqui porque um 11º arquivo em api/ viola a Regra Zero-A deste
+// projeto (máximo 10 arquivos — regra inviolável, documentada em CLAUDE.md,
+// já causou 1 dia inteiro de build quebrado silenciosamente em 16/05/2026).
+// Usa o parâmetro `section` (não `cat`) pra não colidir com o caminho
+// antigo acima (colunistas e qualquer outro chamador de ?cat=), que
+// continua 100% intacto.
+// ══════════════════════════════════════════════════════════════════════
+
+const EDITORIAL_SECTIONS = new Set(["politica", "economia", "negocios", "financas", "industria", "tecnologia",
+  "esportes", "familia", "giro", "internacional", "brasil-on"]);
+const FINANCE_TOPICS = new Set(["Renda Fixa", "Bolsa e Ações", "Seguros e Proteção", "Previdência",
+  "Fundos e FIIs", "Planejamento Patrimonial", "Criptomoedas"]);
+
+// Rótulos reais das subseções de cada editoria, no padrão atual do menu
+// (slugs modernos, sem os aliases "legado" de SECTION_LABELS acima, que só
+// existem pra resolver URL antiga de ARTIGO, não de página de listagem).
+const SUBSECTIONS = {
+  politica: {
+    "bastidores-de-brasilia": "Bastidores de Brasília", "eleicoes-2026": "Eleições 2026",
+    "noticias-24hrs": "Notícias 24hrs", "corrupcao-e-investigacao": "Corrupção & Investigação",
+    "politica-internacional": "Política Internacional", geral: "Geral"
+  },
+  economia: {
+    "politica-economica": "Política Econômica", "cambio-e-mercados": "Câmbio & Mercados",
+    "pib-e-indicadores": "PIB & Indicadores", tributos: "Tributos", geral: "Geral"
+  },
+  negocios: {
+    empreendedorismo: "Empreendedorismo", startups: "Startups", gestao: "Gestão",
+    "credito-empresarial": "Crédito Empresarial", geral: "Geral"
+  },
+  financas: {
+    "renda-fixa": "Renda Fixa", "bolsa-e-acoes": "Bolsa & Ações",
+    "seguros-e-protecao": "Seguros & Proteção", previdencia: "Previdência",
+    "fundos-e-fiis": "Fundos & FIIs", "planejamento-patrimonial": "Planejamento Patrimonial",
+    criptomoedas: "Criptomoedas", geral: "Geral"
+  },
+  industria: {
+    agronegocio: "Agronegócio", energia: "Energia", construcao: "Construção Civil",
+    logistica: "Logística", geral: "Geral"
+  },
+  tecnologia: {
+    "inteligencia-artificial": "Inteligência Artificial", fintechs: "Fintechs",
+    ciberseguranca: "Cibersegurança", inovacao: "Inovação", geral: "Geral"
+  },
+  esportes: {
+    futebol: "Futebol", basquete: "Basquete", motor: "Motor", tenis: "Tênis",
+    mma: "MMA", volei: "Vôlei", nfl: "NFL", geral: "Geral"
+  },
+  familia: {
+    "orcamento-familiar": "Orçamento Familiar", "educacao-dos-filhos": "Educação dos Filhos",
+    habitacao: "Habitação", sucessao: "Sucessão", geral: "Geral"
+  },
+  giro: { famosos: "Famosos", bastidores: "Bastidores", geral: "Geral" },
+  internacional: {
+    eua: "Estados Unidos", europa: "Europa", china: "China", geopolitica: "Geopolítica", geral: "Geral"
+  },
+  "brasil-on": {
+    cotidiano: "Cotidiano", consumidor: "Consumidor", "bem-estar": "Bem-estar",
+    "meio-ambiente": "Meio Ambiente", "ciencia-e-inovacao": "Ciência & Inovação", geral: "Geral"
+  }
+};
+
+const _editorialFeeds = new Map();
+
+async function fetchLatestEditorial(category, limit) {
+  const url = new URL("/api/portal-posts", BASE);
+  url.search = new URLSearchParams({ recentes: "true", categoria: category, limit });
+  const response = await fetch(url, { signal: AbortSignal.timeout(3500) });
+  if (!response.ok) throw new Error("Feed indisponível");
+  const { posts } = await response.json();
+  return posts.filter(post => post.categoria === category && post.titulo?.trim() &&
+    /^\/[a-z0-9-]+\/[a-z0-9-]+-[a-f0-9]{8}\/$/.test(post.url));
+}
+
+async function latestEditorial(category, limit) {
+  const key = category + "/" + limit;
+  const previous = _editorialFeeds.get(key);
+  if (previous && Date.now() - previous.time < 120000) return previous.posts;
+  try {
+    const posts = await fetchLatestEditorial(category, limit);
+    if (posts.length) _editorialFeeds.set(key, { posts, time: Date.now() });
+    return posts;
+  } catch {
+    return previous && Date.now() - previous.time < 3600000 ? previous.posts : [];
+  }
+}
+
+function fillEditorialCard($, id, post) {
+  if (!post) return;
+  $("#card-" + id + "-titulo").text(post.titulo.replaceAll("**", ""));
+  $("#card-" + id + "-resumo").text(post.resumo || post.comentario_fixado || "");
+  $("#card-" + id + "-link").attr("href", post.url);
+}
+
+function injectEditorialJsonLd($, name, url) {
+  $("<script>").attr("type", "application/ld+json").text(JSON.stringify({
+    "@context": "https://schema.org", "@type": "CollectionPage", name, url
+  }).replaceAll("<", "\\u003c")).appendTo("head");
+}
+
+function injectEditorialLinks($, posts) {
+  for (const post of posts) {
+    const anchor = $("<a>").attr("href", post.url).text(post.titulo);
+    $("<div>").append(anchor).appendTo("[data-main-list]");
+  }
+}
+
+async function handleEditorial(req, res) {
+  const section = req.query.section || "";
+  if (section && !EDITORIAL_SECTIONS.has(section)) return res.status(404).end();
+
+  const sub = req.query.sub || "";
+  if (sub) {
+    if (!section || !SUBSECTIONS[section] || !SUBSECTIONS[section][sub]) return res.status(404).end();
+    const label = SUBSECTIONS[section][sub];
+    const canonical = BASE + "/" + section + "/" + sub + "/";
+    const template = await readFile(join(process.cwd(), "public", section, "index.html"), "utf8");
+    const $ = load(template);
+    // rótulo da editoria-mãe, lido do <title> original do template estático
+    // (já confirmado correto pra todas as 11 categorias) — usado no badge/
+    // temp pra dar contexto de hierarquia, enquanto o H1 fica específico da
+    // subseção (badge = categoria, H1 = página atual).
+    const parentLabel = $("title").text().split("|")[0].trim();
+    $('link[rel="canonical"]').remove();
+    $("<link>").attr({ rel: "canonical", href: canonical }).appendTo("head");
+    $("title").text(label + " | " + parentLabel + " | O Valor Capital");
+    $('meta[name="description"]').attr("content",
+      `Cobertura de ${label} no O Valor Capital, dentro da editoria de ${parentLabel}, com notícias, análises e contexto editorial padronizado.`);
+    $(".ovc-hero h1").text(label);
+    $(".ovc-hero .ovc-badge, .ovc-weather .temp").text(parentLabel);
+    injectEditorialJsonLd($, label, canonical);
+
+    const broad = await latestEditorial(section, 40);
+    const filtered = sub === "geral" ? [] : broad.filter(post => post.subcategoria_slug === sub);
+    const posts = (filtered.length >= 3 ? filtered : broad).slice(0, 8);
+    injectEditorialLinks($, posts);
+    const complete = posts.length > 0;
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", complete
+      ? "public, s-maxage=120, stale-while-revalidate=600, stale-if-error=3600" : "no-store");
+    if (!complete) res.setHeader("Retry-After", "60");
+    return res.status(complete ? 200 : 503).send($.html());
+  }
+
+  const template = await readFile(join(process.cwd(), "public", section, "index.html"), "utf8");
+  const $ = load(template);
+  const canonical = BASE + (section ? "/" + section + "/" : "/");
+  $('link[rel="canonical"]').remove();
+  $("<link>").attr({ rel: "canonical", href: canonical }).appendTo("head");
+  let complete = false;
+  if (section) {
+    const label = $("title").text().split("|")[0].trim();
+    const desc = $('meta[name="description"]').attr("content") || "";
+    $(".ovc-hero h1, .ovc-hero .ovc-badge, .ovc-weather .temp").text(label);
+    $(".ovc-hero > p").text(desc);
+    injectEditorialJsonLd($, label, canonical);
+    const posts = await latestEditorial(section, 8);
+    injectEditorialLinks($, posts);
+    complete = posts.length > 0;
+  } else {
+    const [politics, business, finance] = await Promise.all([
+      latestEditorial("politica", 8), latestEditorial("negocios", 8), latestEditorial("financas", 50)
+    ]);
+    fillEditorialCard($, "hero", politics[0]);
+    fillEditorialCard($, "feature", business[0]);
+    const featuredFinance = finance.find(post => FINANCE_TOPICS.has(post.subcategoria));
+    if (featuredFinance) fillEditorialCard($, "lions", featuredFinance);
+    else $("#card-lions-titulo").text("Finanças e investimentos");
+    complete = Boolean(politics.length && business.length);
+  }
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", complete ? "public, s-maxage=120, stale-while-revalidate=600, stale-if-error=3600" : "no-store");
+  if (!complete) res.setHeader("Retry-After", "60");
+  return res.status(complete ? 200 : 503).send($.html());
+}
+
 export default async function handler(req, res) {
   const host = req.headers['host'] || '';
   if (host === 'ovalorcapital.com.br') {
@@ -333,6 +517,8 @@ export default async function handler(req, res) {
   }
 
   const cat = (req.query.cat || "").toLowerCase();
+  if (!cat) return handleEditorial(req, res);
+
   const seo = CAT_SEO[cat];
   if (!seo) return res.status(404).send("Not found");
 
