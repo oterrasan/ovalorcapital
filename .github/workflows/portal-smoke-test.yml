@@ -1,7 +1,9 @@
 name: Smoke test pós-deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Deploy Production"]
+    types: [completed]
     branches: [main]
 
 permissions:
@@ -10,14 +12,15 @@ permissions:
 
 jobs:
   smoke-test:
+    if: github.event.workflow_run.conclusion == 'success'
     name: Verificar portal ao vivo
     runs-on: ubuntu-latest
 
     steps:
-      - name: Aguardar deploy Vercel (~3 min)
-        run: |
-          echo "Aguardando deploy Vercel completar..."
-          sleep 180
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
       - name: Verificar homepage
         id: check_home
@@ -83,12 +86,15 @@ jobs:
           echo "result=ok" >> $GITHUB_OUTPUT
           echo "✅ /politica/ OK"
 
+      - name: Validar manchetes, links e editorias no HTML inicial
+        run: python3 scripts/check-editorial-html.py https://www.ovalorcapital.com.br
+
       - name: Criar issue de alerta se falhar
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
-            const commit = context.sha.slice(0, 7);
+            const commit = context.payload.workflow_run.head_sha.slice(0, 7);
             const hora = new Date().toLocaleString('pt-BR', {
               timeZone: 'America/Sao_Paulo',
               day: '2-digit', month: '2-digit', year: 'numeric',
