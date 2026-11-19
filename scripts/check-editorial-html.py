@@ -114,11 +114,14 @@ class EditorialPage(HTMLParser):
         self.reading_title = False
         self.canonicals = []
         self.links = set()
+        self.empty_subsection = False
         self.schema = []
         self.reading_schema = False
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
+        if "data-subsection-empty" in a:
+            self.empty_subsection = True
         if tag == "h1":
             self.reading_title = True
             self.h1.append("")
@@ -164,6 +167,7 @@ def check_sub(args):
     section, sub, label = args
     path = f"/{section}/{sub}/"
     with urlopen(sys.argv[1].rstrip("/") + path, timeout=25) as response:
+        robots = response.headers.get("X-Robots-Tag", "").lower()
         page = EditorialPage()
         page.feed(response.read().decode())
     if page.canonicals != [BASE + path] or len(page.h1) != 1:
@@ -171,7 +175,10 @@ def check_sub(args):
     title = page.h1[0].strip()
     if not title or "carregando" in title.lower() or title != label:
         raise ValueError(f"{path}: H1 de subseção inválido (esperado {label!r}, veio {title!r})")
-    if not page.links:
+    if page.empty_subsection:
+        if "noindex" not in robots:
+            raise ValueError(f"{path}: subseção vazia sem noindex")
+    elif not page.links:
         raise ValueError(f"{path}: nenhum link de matéria na subseção")
     if not any(json.loads(raw).get("@type") == "CollectionPage" for raw in page.schema):
         raise ValueError(f"{path}: CollectionPage ausente")

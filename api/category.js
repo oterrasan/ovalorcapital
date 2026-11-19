@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
+import { publishedSubsectionPosts } from "./portal-posts.js";
 import articleHandler from "./article.js";
 
 const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
@@ -11,7 +12,7 @@ const SITE = "O Valor Capital";
 
 const BASE = "https://www.ovalorcapital.com.br";
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Mesmo mapa de api/article.js — categoria ativa no banco → path real da URL.
@@ -564,17 +565,26 @@ async function handleEditorial(req, res) {
     $(".ovc-hero .ovc-badge, .ovc-weather .temp").text(parentLabel);
     injectEditorialJsonLd($, label, canonical);
 
-    const broad = await latestEditorial(section, 40);
-    const filtered = sub === "geral" ? [] : broad.filter(post => post.subcategoria_slug === sub);
-    const posts = (filtered.length >= 3 ? filtered : broad).slice(0, 8);
-    injectEditorialLinks($, posts);
-    const complete = posts.length > 0;
-
+    $(".ovc-hero > p").text(`Notícias e análises sobre ${label} na editoria de ${parentLabel}.`);
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", complete
-      ? "public, s-maxage=120, stale-while-revalidate=600, stale-if-error=3600" : "no-store");
-    if (!complete) res.setHeader("Retry-After", "60");
-    return res.status(complete ? 200 : 503).send($.html());
+    try {
+      const posts = await publishedSubsectionPosts(section, sub);
+      if (posts.length) {
+        injectEditorialLinks($, posts);
+      } else {
+        const list = $("[data-main-list]").attr("data-subsection-empty", "true");
+        $("<p>").text("Ainda não há matérias publicadas nesta subseção.").appendTo(list);
+        $("<a>").attr("href", "/" + section + "/").text("Ver " + parentLabel).appendTo(list);
+        res.setHeader("X-Robots-Tag", "noindex, follow");
+      }
+      res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+      return res.status(200).send($.html());
+    } catch {
+      res.setHeader("Retry-After", "60");
+      res.setHeader("Cache-Control", "no-store");
+      $("[data-main-list]").text("As matérias estão temporariamente indisponíveis.");
+      return res.status(503).send($.html());
+    }
   }
 
   const template = await readFile(join(process.cwd(), "public", section, "index.html"), "utf8");
