@@ -80,6 +80,29 @@ function pausaNoturnaAtiva() {
   return minutos < 360; // true = dentro de 00h-06h BRT
 }
 
+// 19/11/2026 — Roberto: "preciso que voce crie um botao no admin que
+// interrompa a captura de videos para reels. nao quero isso rodando o
+// tempo todo. nao estou dando conta." Interruptor DEDICADO, distinto dos
+// 2 que já existiam: o botão "🎞️ Reels" do admin (REELS_AUTOMATION_ENABLED)
+// só controla a PUBLICAÇÃO de um Reel já pronto no Instagram, nunca o
+// passo pesado e contínuo (download + montagem ffmpeg + upload de prévia
+// pra Meta, handleReelsRenderJob) — e o Interruptor Geral (SISTEMA_LIGADO)
+// para o sistema INTEIRO (geração de matérias em todos os canais, feed),
+// amplo demais pro que Roberto pediu agora: só pausar a produção de Reels
+// novos, sem derrubar o resto. Chave própria (REELS_CAPTURA_ENABLED),
+// checada em AND com as outras duas — qualquer uma delas off já basta pra
+// parar a captura. Fail-OPEN em erro de leitura (diferente de
+// sistemaGeralLigado(), que é fail-closed de propósito): essa é uma
+// chave nova e opcional — uma falha transitória de leitura no Supabase
+// não deve silenciosamente travar a captura sem Roberto ter mexido em
+// nada.
+async function reelsCapturaLigada() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "REELS_CAPTURA_ENABLED").limit(1);
+    return !(data && data[0] && data[0].value === "off");
+  } catch (_) { return true; }
+}
+
 const VENDOR_JS = {
   react: "https://unpkg.com/react@18/umd/react.production.min.js",
   "react-dom": "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
@@ -2336,6 +2359,13 @@ async function handleReelsRenderJob(req, res, body) {
   // pausa" (o gate automático por horário), não sobre o botão manual.
   const soPrioridadeGate = body?.prioridade === true;
   if (!(await sistemaGeralLigado())) return res.status(200).json({ ok: true, job: null, reason: "sistema_geral_pausado" });
+  // 19/11/2026 — interruptor dedicado de captura (ver reelsCapturaLigada()
+  // acima). ABSOLUTO como o Interruptor Geral — nunca tem exceção de
+  // prioridade: se Roberto pausou a captura porque "nao esta dando
+  // conta", a prioridade de uma edição dele mesma também deve esperar,
+  // senão o botão não pausaria nada de verdade (qualquer ajuste de
+  // enquadramento furaria o pausado na hora).
+  if (!(await reelsCapturaLigada())) return res.status(200).json({ ok: true, job: null, reason: "captura_de_reels_pausada" });
   // 18/11/2026 — gate automático pela janela 06h-00h BRT (ver comentário em
   // pausaNoturnaAtiva() acima) — além do toggle manual, nunca inicia uma
   // nova captura/render de Reel durante a pausa noturna. EXCETO quando é a
