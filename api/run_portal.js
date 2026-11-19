@@ -931,8 +931,24 @@ async function handleLinkManual(req, res, body) {
     }
     return res.status(502).json({ ok: false, error: "falha na reescrita: " + (e?.message || e) });
   }
-  content.categoria = categoria;
-  content.subcategoria = SUBCAT[categoria] || "Geral";
+  // 19/11/2026 — Roberto, furioso, com prints reais do admin: conteúdo
+  // descoberto pelo robô de TikTok saía SEMPRE com a categoria da conta de
+  // origem (TIKTOK_ROBO_CONTAS — ex: @reinaldogottino sempre "esportes"),
+  // mesmo quando o vídeo não tinha nada a ver com esporte. Confirmado real
+  // no banco: "Criança de 7 anos é esquecida dentro de avião" e "Capivara
+  // é resgatada..." (os dois com fonte_link_manual batendo com o perfil
+  // @reinaldogottino) foram publicados como esportes/Futebol — `categoria`
+  // aqui era sempre o palpite por conta, nunca o assunto real do vídeo.
+  // Fix: BRASILON_KERNEL agora pede CATEGORIA real (ver core/ai_portal.js)
+  // — pro conteúdo descoberto pelo robô (jobVideoOnly — nenhuma escolha
+  // humana envolvida), usa a classificação real da IA, que já leu o texto/
+  // legenda de verdade; só cai pro palpite da conta se a IA não devolver
+  // nada válido. Submissão MANUAL de Roberto (sem jobVideoOnly — ele
+  // escolheu a categoria de propósito no admin) continua respeitando a
+  // escolha dele sem exceção — nunca "corrigida" por baixo dele.
+  const categoriaIa = remapCat(content).categoria;
+  content.categoria = (jobVideoOnly && CATS.has(categoriaIa)) ? categoriaIa : categoria;
+  content.subcategoria = SUBCAT[content.categoria] || "Geral";
   const erros = validarBrasilOn(content);
   if (erros.length) {
     if (social && !jobKey) {
@@ -955,7 +971,14 @@ async function handleLinkManual(req, res, body) {
     titulo, conteudo: content.corpo,
     comentario_fixado, imagem: img || null, hash,
     status: "pendente", approved: false, publish_method: "link_manual",
-    user_tags: JSON.stringify([categoria]), subcategoria: content.subcategoria,
+    // 19/11/2026 — mesmo fix de categoria acima: user_tags precisa refletir
+    // content.categoria (o valor FINAL já resolvido, possivelmente corrigido
+    // pela IA), nunca a variável `categoria` original (palpite por conta) —
+    // sem isso, o post ficava arquivado sob a categoria errada mesmo com
+    // subcategoria/content.categoria já certos, já que user_tags é o campo
+    // real que decide onde a matéria aparece no site (ver histórico do
+    // projeto: "a posse real de um post é user_tags, não publish_method").
+    user_tags: JSON.stringify([content.categoria]), subcategoria: content.subcategoria,
     subcategoria_slug: slugify(content.subcategoria), collaborators: "[]",
     tipo_conteudo: "padrao",
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_link_manual: link, ...(jobVideoOnly ? { video_only: true } : {}) },
