@@ -646,6 +646,24 @@ const TIKTOK_ROBO_CONTAS = {
   profdanuzioneto: "brasil-on"
 };
 const TIKTOK_ROBO_MARCA = "TIKTOK_ROBO_TT__";
+// 20/11/2026 — Roberto: "Encontre uma forma do nosso sistema conseguir
+// capturar videos do instagram. isso agora passa a ser a sua prioridade."
+// Mesmos veículos/categorias do robô de TikTok acima — é o mesmo motivo:
+// perfis que publicam alto volume de vídeo curto diariamente. A conta de
+// captura (instagram-private-api, config IG_CAPTURA_CONTA — já cadastrada
+// e logada pra Reescrita por Link de um link avulso, ver
+// scripts/instagram-login.mjs) também sabe LISTAR o feed recente de um
+// perfil (ig.feed.user) — não só buscar 1 post por código. Quem lista é o
+// runner (instagram-auto.yml, job capturar_links,
+// scripts/instagram-robo-descobrir.mjs), que manda a lista aqui, uma conta
+// por chamada — mesmo padrão do robô de TikTok, nunca a Vercel (login
+// automatizado numa function serverless sem estado persistente reloga a
+// cada chamada, aumentando ainda mais o risco já real de bloqueio/desafio
+// da conta — ver aviso no topo do script do runner).
+const INSTAGRAM_ROBO_MARCA = "INSTAGRAM_ROBO_IG__";
+// Mesma idade máxima e mesmo espírito da regra intocável do TikTok acima
+// ("nao pode capturar nada repetido") — aplicado aqui por consistência de
+// design, não por ordem explícita de Roberto sobre o Instagram especificamente.
 // 🔒 10/11/2026 — Roberto: "nao pode capturar nada repetido! entao, a
 // idade deve ser preservada como unica regra intocavel." — NUNCA remover
 // este filtro, mesmo que outra regra de exclusão de captura seja pedida
@@ -718,6 +736,60 @@ async function autoMetropolesTiktok(req, res, body) {
   if (criados.length) {
     await dispararReelsWorkflowAgora();
     await log("info", `[tiktok-robo] @${user}: ${criados.length} vídeo(s) novo(s) enviados pra captura (categoria: ${categoria})`);
+  }
+  return res.status(200).json({ ok: true, generated: criados.length, user, listados: videos.length, recentes: recentes.length, criados });
+}
+
+// 20/11/2026 — robô de descoberta automática de vídeo novo no Instagram
+// (ver comentário em INSTAGRAM_ROBO_MARCA acima). Mesma estrutura de
+// handleMetropolesTiktokRegistrar/autoMetropolesTiktok, só troca o id
+// numérico do TikTok pelo código (shortcode) do post/reel do Instagram.
+async function handleInstagramRoboRegistrar(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  if (!(await automacaoAtiva())) return res.status(200).json({ ok: true, generated: 0, info: "automacao_geral_desligada" });
+  // Mesma regra de 18/11/2026 já aplicada ao robô de TikTok (nunca gerar
+  // conteúdo de madrugada sem ação manual de Roberto) — esta função só
+  // lista e enfileira, mas o pedido dele foi "sistema todo", sem exceção.
+  if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, generated: 0, info: "pausado_madrugada" });
+  const user = String(body.user || "").toLowerCase().replace(/[^a-z0-9._]/g, "");
+  const categoria = TIKTOK_ROBO_CONTAS[user] || "brasil-on";
+  const videos = Array.isArray(body.videos) ? body.videos.slice(0, 40) : [];
+  return autoInstagramRobo(req, res, { ...body, user, categoria, videos });
+}
+async function autoInstagramRobo(req, res, body) {
+  const user = body.user || "";
+  const categoria = body.categoria || "brasil-on";
+  const videos = body.videos || [];
+  const agora = Date.now();
+  const recentes = videos
+    .map(v => ({ id: String(v.code || "").trim(), criado: Number(v.timestamp || 0) * 1000, titulo: String(v.title || "").slice(0, 80) }))
+    .filter(v => /^[A-Za-z0-9_-]{5,15}$/.test(v.id) && v.criado > 0 && agora - v.criado <= TIKTOK_ROBO_IDADE_MAX_MS)
+    .sort((a, b) => b.criado - a.criado);
+  if (!recentes.length) return res.status(200).json({ ok: true, generated: 0, info: "nenhum_video_recente", user, listados: videos.length });
+
+  // Já visto pelo robô, já colado por Roberto, ou já na fila de captura?
+  const ids = recentes.map(v => v.id);
+  const vistos = new Set();
+  const { data: marcas } = await supabase.from("config").select("key").in("key", ids.map(id => INSTAGRAM_ROBO_MARCA + id));
+  (marcas || []).forEach(m => vistos.add(m.key.slice(INSTAGRAM_ROBO_MARCA.length)));
+  const { data: jaPosts } = await supabase.from("posts").select("metrics").or(ids.map(id => `metrics->>fonte_link_manual.ilike.*${id}*`).join(",")).limit(50);
+  (jaPosts || []).forEach(p => { const l = String(p?.metrics?.fonte_link_manual || ""); ids.forEach(id => { if (l.includes(id)) vistos.add(id); }); });
+  const { data: jobs } = await supabase.from("config").select("value").like("key", `${LINK_JOB_PREFIX}%`).limit(200);
+  (jobs || []).forEach(j => { ids.forEach(id => { if (String(j.value || "").includes(id)) vistos.add(id); }); });
+
+  const novos = recentes.filter(v => !vistos.has(v.id));
+  if (body.dry === "1" || body.dry === true) return res.status(200).json({ ok: true, dry: true, user, listados: videos.length, recentes: recentes.length, novos });
+  const criados = [];
+  for (const v of novos) {
+    const link = `https://www.instagram.com/p/${v.id}/`;
+    try {
+      await supabase.from("config").insert({ key: INSTAGRAM_ROBO_MARCA + v.id, value: new Date().toISOString() });
+      criados.push({ id: v.id, job_key: await _criarLinkJob(link, categoria, { video_only: true }), titulo: v.titulo });
+    } catch (_) {}
+  }
+  if (criados.length) {
+    await dispararReelsWorkflowAgora();
+    await log("info", `[instagram-robo] @${user}: ${criados.length} vídeo(s) novo(s) enviados pra captura (categoria: ${categoria})`);
   }
   return res.status(200).json({ ok: true, generated: criados.length, user, listados: videos.length, recentes: recentes.length, criados });
 }
@@ -2313,6 +2385,7 @@ export default async function handler(req, res) {
   if (body.action === "link_captura_conta") return handleLinkCapturaConta(req, res, body);
   if (body.action === "link_captura_sessao") return handleLinkCapturaSessao(req, res, body);
   if (body.action === "metropoles_tiktok_registrar") return handleMetropolesTiktokRegistrar(req, res, body);
+  if (body.action === "instagram_robo_registrar") return handleInstagramRoboRegistrar(req, res, body);
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });

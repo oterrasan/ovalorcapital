@@ -28,6 +28,7 @@
 // Qualquer falha -> link_job_falhou com o motivo real (aparece no admin).
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { igCliente as _igClienteCompartilhado } from "./instagram-login.mjs";
 
 const API = "https://www.ovalorcapital.com.br/api/run_portal";
 const TOKEN = process.env.OVC_ADMIN_TOKEN || "";
@@ -185,29 +186,14 @@ function shortcodeParaId(sc) {
   for (const c of sc) id = id * 64n + BigInt(IG_ALFABETO.indexOf(c));
   return id.toString();
 }
+// 20/11/2026 — login em si extraído pra scripts/instagram-login.mjs
+// (reusado agora também por instagram-robo-descobrir.mjs). Cache local
+// `_ig` preservado, idêntico a antes.
 let _ig = null;
 async function igCliente() {
   if (_ig) return _ig;
-  const conta = await api({ action: "link_captura_conta" });
-  if (!conta.ok || !conta.username || !conta.password) {
-    throw new Error("Nenhuma conta de captura do Instagram cadastrada. Admin → Reescrita por Link → Conta de captura do Instagram.");
-  }
-  const { IgApiClient } = await import("instagram-private-api");
-  const ig = new IgApiClient();
-  ig.state.generateDevice(conta.username);
-  let logado = false;
-  if (conta.session) {
-    try { await ig.state.deserialize(conta.session); await ig.account.currentUser(); logado = true; }
-    catch (_) { console.log("sessão salva expirou — fazendo login de novo"); }
-  }
-  if (!logado) {
-    await ig.account.login(conta.username, conta.password);
-    const estado = await ig.state.serialize();
-    delete estado.constants;
-    await api({ action: "link_captura_sessao", session: estado });
-  }
-  _ig = ig;
-  return ig;
+  _ig = await _igClienteCompartilhado(api);
+  return _ig;
 }
 async function capturarInstagram(link, arquivo) {
   const sc = (new URL(link).pathname.match(/\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/) || [])[1];

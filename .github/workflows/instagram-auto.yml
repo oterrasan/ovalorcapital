@@ -613,6 +613,33 @@ jobs:
             echo ""
           done
 
+      # 20/11/2026 — Roberto: "Encontre uma forma do nosso sistema conseguir
+      # capturar videos do instagram. isso agora passa a ser a sua
+      # prioridade." Mesmo espírito do robô de TikTok acima — mesma conta de
+      # captura já logada pra Reescrita por Link de 1 link avulso (ver
+      # scripts/instagram-login.mjs/core/linkCapture.js), que também sabe
+      # LISTAR o feed recente de um perfil (não só buscar 1 post por
+      # código). Roda sempre, independente de link pendente — mesmo padrão
+      # do robô de TikTok. Nunca derruba o job (continue-on-error em cada
+      # passo). Risco real de checkpoint/desafio na conta de captura, não
+      # escondido — ver aviso no topo do próprio script.
+      - name: Baixar código (robô Instagram)
+        continue-on-error: true
+        uses: actions/checkout@v4
+      - name: Preparar Node (robô Instagram)
+        continue-on-error: true
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Buscar vídeos novos (robô Instagram — 8 contas)
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          npm install --no-save --no-audit --no-fund instagram-private-api@1.45.3 >/dev/null 2>&1 || true
+          node scripts/instagram-robo-descobrir.mjs
+
       - name: Verificar pedidos de captura
         id: link_queue
         env:
