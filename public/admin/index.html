@@ -5185,7 +5185,7 @@ function AutomacaoInstagram() {
         <div style={cartao}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:17,fontWeight:800}}>📥 Captura de Reels</span><span className={`badge ${capturaEnabled?'badge-green':'badge-red'}`}>{capturaEnabled?'LIGADA':'PAUSADA'}</span></div>
           <div style={linhaInfo}><span>O quê</span><strong>baixar vídeo, montar e enviar prévia</strong></div>
-          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5}}>Diferente do botão "🎞️ Reels" acima (esse só controla a publicação no Instagram). Este pausa a produção de Reels NOVOS — robô de TikTok, links que você cola, Bacci — pra parar de acumular vídeo pra você revisar. Nada do resto do sistema (matérias, feed) é afetado.</div>
+          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5}}>Diferente do botão "🎞️ Reels" acima (esse só controla a publicação no Instagram). Este pausa a DESCOBERTA de vídeo novo — robô de TikTok, links que você cola, Bacci — pra parar de acumular vídeo pra você revisar. Suas ações manuais (editar enquadramento, aprovar) continuam funcionando mesmo pausado — nunca travam. Nada do resto do sistema (matérias, feed) é afetado.</div>
           <button onClick={toggleCapturaReels} disabled={pausandoCaptura} style={botaoPausa(capturaEnabled,pausandoCaptura)}>{pausandoCaptura?'Aplicando...':(capturaEnabled?'⏸ Pausar captura':'▶ Ligar captura')}</button>
           {pausaCapturaMsg && <div style={{fontSize:12,fontWeight:600,color:pausaCapturaMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaCapturaMsg}</div>}
         </div>
