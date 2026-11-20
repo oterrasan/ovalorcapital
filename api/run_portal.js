@@ -599,7 +599,22 @@ async function handleLinkJobsPendentes(req, res, body) {
   // em NADA" (Roberto). peek:true também respeita, pra não acender badge de
   // pendência no admin sugerindo que algo vai rodar sozinho à noite.
   if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, count: 0, jobs: [], info: "pausado_madrugada" });
-  const { data, error } = await supabase.from("config").select("key,value").like("key", `${LINK_JOB_PREFIX}%`).limit(50);
+  // 20/11/2026 — 🔴 causa raiz real de "nada sai da fila, fica tudo 'Na
+  // fila' pra sempre" (confirmado com dado real: 1.712 pedidos acumulados,
+  // alguns com 10 dias, todos status:pending/attempts:0 — nunca sequer
+  // tentados uma vez). Dois problemas reais juntos:
+  // 1) .limit(50) SEM .order() — Postgres não garante nenhuma ordem
+  //    estável sem ORDER BY explícito; com o backlog bem maior que 50,
+  //    um pedido antigo podia nunca cair dentro da janela de 50 que o
+  //    banco decide devolver. Fix: .order("key") — a chave começa com o
+  //    timestamp em ms (LINK_JOB__<ms>_<rand>), então ordenar por chave
+  //    = ordenar por idade real, sempre processando o mais antigo primeiro.
+  // 2) só 3 por rodada — rendia perto de nada contra um backlog de milhares
+  //    (robô de TikTok + robô de Instagram, 16 contas no total, + Roberto
+  //    colando link manualmente). Subido pra 10 (mesmo teto já usado em
+  //    "Em lote" no admin) — ainda cabe tranquilo nos 20min de timeout do
+  //    job (cada vídeo real leva segundos, não minutos).
+  const { data, error } = await supabase.from("config").select("key,value").like("key", `${LINK_JOB_PREFIX}%`).order("key", { ascending: true }).limit(400);
   if (error) return res.status(500).json({ ok: false, error: error.message });
   const staleBefore = Date.now() - 30 * 60 * 1000;
   const jobs = [];
@@ -610,7 +625,7 @@ async function handleLinkJobsPendentes(req, res, body) {
   }
   if (body?.peek === true) return res.status(200).json({ ok: true, count: jobs.length });
   const out = [];
-  for (const { key, job } of jobs.slice(0, 3)) {
+  for (const { key, job } of jobs.slice(0, 10)) {
     const path = `link-capture/${key.replace(/[^a-zA-Z0-9_-]/g, "")}.mp4`;
     let upload = null;
     try {
