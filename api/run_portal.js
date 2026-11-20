@@ -591,14 +591,24 @@ async function _finalizarLinkJob(key, ok, info) {
 // Runner pede os pedidos pendentes. peek:true só conta, sem reservar.
 async function handleLinkJobsPendentes(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
-  // 18/11/2026 — mesmo gate de handleMetropolesTiktokRegistrar: nunca marca
-  // nada como "processing" nem entrega trabalho ao runner durante a pausa —
-  // o job fica como estava (pending), retomado sozinho às 06h BRT. Cobre
-  // tanto job criado pelo robô quanto qualquer link social que Roberto
-  // tenha colado e precisasse do runner — "sistema todo deve ser travado...
-  // em NADA" (Roberto). peek:true também respeita, pra não acender badge de
-  // pendência no admin sugerindo que algo vai rodar sozinho à noite.
-  if (pausaNoturnaAtiva()) return res.status(200).json({ ok: true, count: 0, jobs: [], info: "pausado_madrugada" });
+  // 18/11/2026 — gate original (ver histórico): durante a pausa, nunca marca
+  // nada como "processing" nem entrega trabalho de DESCOBERTA AUTOMÁTICA
+  // (robô de TikTok/Instagram) ao runner — "sistema todo deve ser travado...
+  // em NADA" (Roberto). peek:true também respeita pra não acender badge de
+  // pendência sugerindo que algo vai rodar sozinho à noite.
+  // 20/11/2026 — 🔴 CORRIGIDO: essa regra bloqueava também o job que o
+  // próprio Roberto criou colando um link manualmente no admin ("Novo
+  // link"/"Em lote") — confirmado com caso real: 2 links de TikTok colados
+  // por ele às 04h50 BRT (fora da automação) ficaram presos em "Na fila"
+  // até 06h00, mesmo handleLinkManual já documentando desde 23/10/2026 que
+  // a submissão manual "funciona mesmo com AUTOMATION desligado ou fora da
+  // janela... de propósito". O próprio comentário de 18/11 já previa essa
+  // distinção ("o sistema so deve produzir conteudos se forem MANUAIS e se
+  // eu FIZER MANUALMENTE") — só nunca foi aplicada aqui. Fix: durante a
+  // pausa, filtra por job — descoberta automática (sem origem:"manual",
+  // robô de TikTok/Instagram) continua bloqueada; link colado por Roberto
+  // (_filaAutomaticaSocial, origem:"manual") passa direto, a qualquer hora.
+  const pausado = pausaNoturnaAtiva();
   // 20/11/2026 — 🔴 causa raiz real de "nada sai da fila, fica tudo 'Na
   // fila' pra sempre" (confirmado com dado real: 1.712 pedidos acumulados,
   // alguns com 10 dias, todos status:pending/attempts:0 — nunca sequer
@@ -621,9 +631,11 @@ async function handleLinkJobsPendentes(req, res, body) {
   for (const row of data || []) {
     let job; try { job = JSON.parse(row.value || "{}"); } catch (_) { continue; }
     const stale = job.status === "processing" && Date.parse(job.processing_at || 0) < staleBefore;
-    if (job.status === "pending" || stale) jobs.push({ key: row.key, job });
+    if (job.status !== "pending" && !stale) continue;
+    if (pausado && job.origem !== "manual") continue;
+    jobs.push({ key: row.key, job });
   }
-  if (body?.peek === true) return res.status(200).json({ ok: true, count: jobs.length });
+  if (body?.peek === true) return res.status(200).json({ ok: true, count: jobs.length, pausado_madrugada: pausado });
   const out = [];
   for (const { key, job } of jobs.slice(0, 10)) {
     const path = `link-capture/${key.replace(/[^a-zA-Z0-9_-]/g, "")}.mp4`;
@@ -950,7 +962,11 @@ async function handleLinkManual(req, res, body) {
   // Instagram/YouTube/TikTok; enfileirar um link de site comum lá cairia no
   // branch do YouTube por engano e falharia de outro jeito, sem ganho real.
   async function _filaAutomaticaSocial(infoExtra) {
-    const key = await _criarLinkJob(link, categoria);
+    // 20/11/2026 — origem:"manual" é o que faz handleLinkJobsPendentes
+    // entregar este pedido ao runner mesmo durante a pausa 00h-06h BRT —
+    // nunca setado pelo robô de TikTok/Instagram (autoMetropolesTiktok/
+    // autoInstagramRobo chamam _criarLinkJob direto, sem essa flag).
+    const key = await _criarLinkJob(link, categoria, { origem: "manual" });
     await dispararReelsWorkflowAgora();
     return res.status(200).json({ ok: true, queued: true, job_key: key, info: infoExtra });
   }
