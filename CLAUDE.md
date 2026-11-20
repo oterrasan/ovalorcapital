@@ -11490,3 +11490,64 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar com o próximo post automático real** (OVC e Brasil On, separadamente) que o badge aparece corretamente na imagem publicada de verdade no Instagram — a verificação desta sessão foi só local/visual, nunca em produção.
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 20/11/2026 — ROBÔ DE CAPTURA DE VÍDEO DO INSTAGRAM (8 contas) + 🔴 FILA "PEDIDOS DE CAPTURA" TRAVADA (1.712 itens) — CAUSA RAIZ REAL E LIMPEZA CONFIRMADA
+
+#### 1) Novo robô de descoberta de vídeo no Instagram (PR #910)
+
+Roberto: *"ENCONTRE UMA FORMA DO NOSSO SISTEMA CONSEGUIR CAPTURAR VIDEOS DO INSTAGRAM. ISSO AGORA PASSA A SER A SUA PRIORIDADE."*
+
+Construído espelhando a arquitetura já comprovada do robô de TikTok (mesmas 8 contas monitoradas — `metropolesoficial`, `g1`, `reinaldogottino`, `sbtnews`, `revista_veja`, `plenonews`, `cnnbrasil`, `profdanuzioneto`; mesma janela de 3h de idade máxima; mesmo prefixo de dedup em `config`):
+
+- **`scripts/instagram-login.mjs`** (novo) — login compartilhado da "conta de captura" (`instagram-private-api`), extraído de `capture-link-jobs.mjs` pra ser reusado também pelo robô novo, sem duplicar nem arriscar os dois ficarem fora de sincronia. Sessão salva em `config.IG_CAPTURA_SESSAO`.
+- **`scripts/instagram-robo-descobrir.mjs`** (novo) — varre o feed recente (`ig.feed.user(userId).items()`) das 8 contas, filtra só vídeo puro (`media_type===2`), chama `action:"instagram_robo_registrar"` no backend.
+- **`api/run_portal.js`** — `INSTAGRAM_ROBO_MARCA = "INSTAGRAM_ROBO_IG__"`, `handleInstagramRoboRegistrar`/`autoInstagramRobo` (nova action `instagram_robo_registrar`), espelhando `handleMetropolesTiktokRegistrar`/`autoMetropolesTiktok` quase ponto a ponto (confirmado via `diff -y` sem discrepância não-intencional), reaproveitando `TIKTOK_ROBO_CONTAS` (mapa conta→categoria) e `TIKTOK_ROBO_IDADE_MAX_MS` (3h).
+- **`.github/workflows/instagram-auto.yml`** — 3 passos novos no job `capturar_links`, logo após o robô de TikTok: instala `instagram-private-api` sob demanda e roda o script novo.
+
+**⚠️ Avisos explícitos dados a Roberto, nenhum resolvido por mim:**
+- **Nenhuma "conta de captura" está cadastrada em produção ainda** — sem isso o robô não consegue logar em lugar nenhum. Cadastro é ação dele: Admin → "Reescrita por Link" → "Conta de captura do Instagram".
+- **Risco real de checkpoint/ban**: `instagram-private-api` é biblioteca NÃO OFICIAL (engenharia reversa do app). Aumentar o volume de chamadas automatizadas aumenta de verdade a chance da conta levar um desafio/ban. Recomendado fortemente usar conta descartável/dedicada — nunca a pessoal dele, nem as de publicação oficiais (@ovalorcapital, @oterrasan, etc).
+- Perguntado "qual é a conta cadastrada?" — reconfirmado via query direta: `IG_CAPTURA_CONTA` vazio; as 8 contas em `ig_accounts` são de PUBLICAÇÃO (token Graph API da Meta), mecanismo diferente, não reaproveitável pro robô de captura.
+- Perguntado "qual é a senha da `@amichelefroes`? Pesquise nas conversas anteriores" — respondido com honestidade: zero credencial de qualquer tipo armazenada pra essa conta; não tenho acesso a conversas/sessões anteriores fora desta; e mesmo que existisse, nunca colaria um valor de senha no chat.
+
+#### 2) 🔴 Fila "Pedidos de captura" travada — causa raiz real confirmada e corrigida (PR #911)
+
+Roberto, com print real do admin (dezenas de links "Na fila" pra sempre): *"ESSA MERDA NAO ESTÁ FUNCIONANDO , CLAUDE, CARALHO!!!!!!!!!! DELETE TUDO O QUE ESTÁ AI E VEJA QUE MERDA ESTA ACONTECENDO"*
+
+**Investigação com dado real (não suposição)**: consultado direto o Supabase — **1.712 pedidos acumulados** em `config` (chaves `LINK_JOB__*`), alguns com 10 dias, TODOS `status:pending`/`attempts:0` — nenhum sequer tentado uma vez. A fila continuava crescendo em tempo real durante a própria investigação (o robô de TikTok + o robô de Instagram novo, 16 contas monitoradas no total, mais qualquer link que Roberto cole manualmente, todos caem na mesma fila).
+
+**Causa raiz real, 2 problemas juntos em `handleLinkJobsPendentes`** (`api/run_portal.js`):
+1. **`.limit(50)` sem `.order()`** — sem `ORDER BY` explícito, Postgres não garante nenhuma ordem estável; com o backlog bem maior que 50, um pedido antigo podia nunca cair na janela de 50 linhas que o banco decide devolver.
+2. **Só 3 pedidos processados por rodada** — rendia perto de nada contra um backlog de milhares.
+
+**Fix**: `.order("key", {ascending:true})` — a chave começa com o timestamp em ms (`LINK_JOB__<ms>_<rand>`), então ordenar por chave = ordenar por idade real, sempre processando o mais antigo primeiro (FIFO de verdade); `.limit(50)`→`.limit(400)`; teto de processamento por rodada `jobs.slice(0,3)`→`jobs.slice(0,10)` (mesmo teto já usado em "Em lote" no admin, ainda cabe tranquilo no timeout de 20min do job).
+
+**Limpeza real da fila travada, confirmada com evidência** (feita diretamente no Supabase via `curl`, nunca expondo a chave no chat — escrita em arquivo temporário do scratchpad, usada, e deletada logo depois):
+```
+Antes:  content-range: 0-0/1712
+DELETE: HTTP 204
+Depois: content-range: */0
+```
+Decisão deliberada: usar um `DELETE` direto e restrito só às chaves `LINK_JOB__*`, **não** a action pré-existente `link_jobs_limpar_tudo` — essa também reseta `video_url`/`instagram_reel_template` em até 2000 posts reais não relacionados, indo além do que o print e as palavras literais de Roberto pediam.
+
+#### Verificação
+
+- `deploy.yml` do commit `ff2c93d567172965c5bccc552355652321c01130` (PR #911) confirmado `conclusion:"success"` antes de tocar em qualquer dado de produção.
+- `node --check` em `api/run_portal.js` e nos 2 scripts novos; `api/` continua com exatamente 10 arquivos (Regra Zero-A).
+- `link_jobs_pendentes?peek=true` testado em produção pós-limpeza: `{"ok":true,"count":0,"jobs":[],"info":"pausado_madrugada"}` — o `pausado_madrugada` é só a pausa noturna 00h-06h BRT fazendo a função retornar antes de consultar o banco (comportamento esperado, não bug); a prova real da limpeza é o `content-range: */0` direto no Supabase.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Cadastrar a conta de captura do Instagram** (Admin → Reescrita por Link → Conta de captura) — sem isso o robô novo não roda. Ação exclusiva de Roberto, usar conta descartável/dedicada, nunca pessoal nem as de publicação oficiais.
+2. **Confirmar com Roberto, no próximo ciclo real (fora da pausa noturna)**, que a fila de captura está drenando de verdade (sem voltar a acumular) com o teto novo de 10/rodada.
+3. **Monitorar se o teto de 10/rodada ainda é suficiente** à medida que o robô de Instagram começar a gerar volume real (hoje ainda não roda, sem conta cadastrada) — se a fila voltar a crescer, considerar subir de novo ou investigar se algum passo do runner está demorando mais que o esperado.
+4. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
