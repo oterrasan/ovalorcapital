@@ -2360,12 +2360,17 @@ async function handleReelsRenderJob(req, res, body) {
   const soPrioridadeGate = body?.prioridade === true;
   if (!(await sistemaGeralLigado())) return res.status(200).json({ ok: true, job: null, reason: "sistema_geral_pausado" });
   // 19/11/2026 — interruptor dedicado de captura (ver reelsCapturaLigada()
-  // acima). ABSOLUTO como o Interruptor Geral — nunca tem exceção de
-  // prioridade: se Roberto pausou a captura porque "nao esta dando
-  // conta", a prioridade de uma edição dele mesma também deve esperar,
-  // senão o botão não pausaria nada de verdade (qualquer ajuste de
-  // enquadramento furaria o pausado na hora).
-  if (!(await reelsCapturaLigada())) return res.status(200).json({ ok: true, job: null, reason: "captura_de_reels_pausada" });
+  // acima). Decisão ORIGINAL (absoluta, sem bypass) estava ERRADA — Roberto
+  // corrigiu em 20/11/2026, com a mesma frase que já tinha usado pra pausa
+  // noturna poucas horas antes: "O SISTEMA DEVE TER A PAUSA PRA CAPTURAR
+  // NOVOS CONTEUDOS MAS NAO DEVE TRAVAR MINHAS ACOES MANUAIS". A pausa é
+  // pra parar a DESCOBERTA/varredura automática de vídeo novo (robô de
+  // TikTok, Bacci, links) — nunca pra travar uma ação que ele mesmo tomou
+  // (editar layout/enquadramento, aprovar), que já chega aqui com
+  // soPrioridadeGate=true (reels_set_layout sempre seta priority_at +
+  // dispara com prioridade:true). Mesmo bypass já usado abaixo pra
+  // pausaNoturnaAtiva() — os dois pausam só a varredura de rotina.
+  if (!soPrioridadeGate && !(await reelsCapturaLigada())) return res.status(200).json({ ok: true, job: null, reason: "captura_de_reels_pausada" });
   // 18/11/2026 — gate automático pela janela 06h-00h BRT (ver comentário em
   // pausaNoturnaAtiva() acima) — além do toggle manual, nunca inicia uma
   // nova captura/render de Reel durante a pausa noturna. EXCETO quando é a
