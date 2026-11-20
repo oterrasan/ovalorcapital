@@ -5,5 +5,60 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - name: Instalar yt-dlp com impersonation (mesmo padrao do robo de TikTok em producao)
+        run: pip install --quiet --break-system-packages -U "yt-dlp[default,curl-cffi]" >/dev/null 2>&1 || true
+
+      - name: Escrever script python de parse (heredoc — YAML ja dedenta pro bash, sem sed)
+        run: |
+          cat > /tmp/_diag_parse.py << 'PYEOF'
+          import json, sys
+          with open(sys.argv[1]) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      d = json.loads(line)
+                  except Exception as e:
+                      print('parse-error:', e)
+                      continue
+                  print('---')
+                  print('title:', d.get('title') or d.get('description') or '(sem titulo)')
+                  print('uploader:', d.get('uploader') or d.get('uploader_id') or d.get('channel'))
+                  print('url:', d.get('webpage_url') or d.get('url'))
+                  print('view_count:', d.get('view_count'))
+                  print('like_count:', d.get('like_count'))
+                  print('duration:', d.get('duration'))
+          PYEOF
+          python3 -c "import ast; ast.parse(open('/tmp/_diag_parse.py').read())" && echo "parse script: sintaxe OK"
+
+      - name: Buscar "bandido se dando mal" no TikTok
+        run: |
+          set +e
+          echo "--- Tentativa 1: URL de busca literal ---"
+          timeout 40 yt-dlp --impersonate chrome --flat-playlist --playlist-end 15 -j \
+            "https://www.tiktok.com/search/video?lang=pt-BR&q=bandido%20se%20dando%20mal" \
+            > /tmp/tt1.jsonl 2> /tmp/tt1.err
+          echo "exit code: $?"
+          wc -l /tmp/tt1.jsonl
+          echo "--- stderr (primeiras 20 linhas) ---"
+          head -20 /tmp/tt1.err
+
+          echo
+          echo "--- Tentativa 2: sintaxe de busca nativa do yt-dlp (tiktoksearch) ---"
+          timeout 40 yt-dlp --impersonate chrome --flat-playlist --playlist-end 15 -j \
+            "tiktoksearch15:bandido se dando mal" \
+            > /tmp/tt2.jsonl 2> /tmp/tt2.err
+          echo "exit code: $?"
+          wc -l /tmp/tt2.jsonl
+          echo "--- stderr (primeiras 20 linhas) ---"
+          head -20 /tmp/tt2.err
+
+          echo
+          echo "=== RESULTADOS REAIS (campos principais de cada tentativa) ==="
+          for f in /tmp/tt1.jsonl /tmp/tt2.jsonl; do
+            if [ -s "$f" ]; then
+              echo "--- $f ---"
+              python3 /tmp/_diag_parse.py "$f"
+            fi
+          done
