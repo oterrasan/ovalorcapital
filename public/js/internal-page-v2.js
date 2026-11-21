@@ -631,6 +631,14 @@
     if(!slug) return;
     if(slug === 'vc') return;
     if(slug === 'colunistas') return;
+    // 19/11/2026 — causa real comprovada (Work): a home/editorias/subseções
+    // novas (api/category.js, handleEditorial) já entregam H1 real e
+    // listagem SSR filtrada por subseção no HTML inicial. Sem este
+    // early-return, este bloco reescrevia orcMain.innerHTML inteiro
+    // (abaixo), apagando esse H1 (o markup novo não usa <h1>, só badge) e
+    // trocando a listagem certa pelo feed genérico da categoria-mãe (este
+    // script só reconhece subseção via ?s= na query, nunca via path).
+    if(document.body.dataset.editorialSsr === '1') return;
     var _section = document.body.dataset.section;
     if(['radar-da-bola','brasileirao-serie-a','brasileirao-serie-b','libertadores','sul-americana','futebol-europeu','mercado-da-bola'].indexOf(_section) !== -1) return;
 

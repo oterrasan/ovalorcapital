@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const BASE = "https://www.ovalorcapital.com.br";
@@ -286,6 +286,20 @@ async function handleRecentes(req, res) {
   });
 
   return res.status(200).json({ posts, total: posts.length });
+}
+
+export async function publishedSubsectionPosts(category, subsection) {
+  const { data, error } = await supabase.from("posts")
+    .select(POST_COLUMNS_LISTAGEM)
+    .eq("status", "publicado")
+    .or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao")
+    .like("user_tags", `%"${category}"%`)
+    .eq("subcategoria_slug", subsection)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(40);
+  if (error) throw error;
+  return dedupe(data || []).map(row => formatPost(row, false))
+    .filter(post => post.categoria === category && post.titulo.trim()).slice(0, 8);
 }
 
 async function handleList(req, res) {

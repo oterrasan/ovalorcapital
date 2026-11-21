@@ -81,6 +81,10 @@
     { "src": "^/tributacao/(.+)$",    "headers": { "Location": "/economia/$1" },   "status": 301 },
     { "src": "^/regulacao/(.+)$",     "headers": { "Location": "/economia/$1" },   "status": 301 },
 
+    { "src": "^/$",                                                                 "dest": "/api/category" },
+    { "src": "^/(politica|economia|negocios|financas|industria|tecnologia|esportes|familia|giro|internacional|brasil-on)/?$", "dest": "/api/category?section=$1" },
+    { "src": "^/(politica|economia|negocios|financas|industria|tecnologia|esportes|familia|giro|internacional|brasil-on)/((?!.*-[a-f0-9]{8}/?$)[^/]+)/?$", "dest": "/api/category?section=$1&sub=$2" },
+
     { "handle": "filesystem" },
 
     { "src": "^/sitemap\\.xml$",             "dest": "/api/sitemap" },
@@ -100,17 +104,6 @@
     { "src": "^/dados/agenda-economica/?$", "dest": "/api/live?page=agenda" },
     { "src": "^/dados/?$",                  "dest": "/api/live?page=dados" },
 
-    { "src": "^/politica/?$",               "dest": "/api/category?cat=politica" },
-    { "src": "^/economia/?$",               "dest": "/api/category?cat=economia" },
-    { "src": "^/negocios/?$",               "dest": "/api/category?cat=negocios" },
-    { "src": "^/financas/?$",               "dest": "/api/category?cat=financas" },
-    { "src": "^/industria/?$",              "dest": "/api/category?cat=industria" },
-    { "src": "^/tecnologia/?$",             "dest": "/api/category?cat=tecnologia" },
-    { "src": "^/esportes/?$",               "dest": "/api/category?cat=esportes" },
-    { "src": "^/familia/?$",               "dest": "/api/category?cat=familia" },
-    { "src": "^/giro/?$",                   "dest": "/api/category?cat=giro" },
-    { "src": "^/internacional/?$",          "dest": "/api/category?cat=internacional" },
-    { "src": "^/brasil-on/?$",              "dest": "/api/category?cat=brasil-on" },
     { "src": "^/colunistas/?$",             "dest": "/api/category?cat=colunistas" },
     { "src": "^/colunistas/([^/]+-[a-f0-9]{8})/?$", "dest": "/api/article?cat=colunistas&slug=$1" },
     { "src": "^/colunistas/([^/]+)/?$",      "dest": "/api/category?cat=colunistas&section=$1" },
