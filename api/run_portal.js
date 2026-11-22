@@ -197,15 +197,23 @@ function pautaParecida(titulo, recentes) {
 }
 function janelaOk() { const br = new Date(Date.now() - 3 * 3600000); const minutos = br.getUTCHours() * 60 + br.getUTCMinutes(); return minutos >= 420 || minutos <= 30; }
 // 18/11/2026 — Roberto: "nao é pra gerar conteudo de madrugada em NADA, SO NOS
-// HORARIOS QUE MANDEI". O cron do vercel.json já tem 0-2,9-23 (UTC) = 06h-00h BRT
+// HORARIOS QUE MANDEI". O cron do vercel.json tinha 0-2,9-23 (UTC) = 06h-00h BRT
 // ativo, mas usa force=true hardcoded na URL, que bypassa janelaOk() por completo —
 // e um disparo fora de hora (atraso do agendador da Vercel, chamada manual, etc)
 // gerava conteúdo real mesmo durante a pausa. Este é o gate redundante no CÓDIGO,
 // independente de force, mesmo padrão já usado pro Instagram (_igAutoDentroDaJanelaAtiva).
+// 22/11/2026 — 🔴 Roberto, furioso, com o sistema publicando às 18h51 BRT:
+// "o sistema só opera e só gera conteúdo agora... das 6 da manhã às 17 da
+// tarde. E acabou. Fora isso, só se eu fizer manualmente." Janela estreitada
+// de 06h-00h BRT pra 06h-17h BRT — confirmado com dado real (hora do
+// servidor + cron ainda rodando às 18h51 BRT) que a janela antiga nunca
+// tinha sido de fato apertada pra isso, só pra 00h-06h. Cron do vercel.json
+// (commit isolado, Regra Zero-F) atualizado junto, de 0-2,9-23 pra 9-19 UTC
+// = 06h-17h BRT — os dois precisam ficar sempre em sincronia.
 function pausaNoturnaAtiva() {
   const br = new Date(Date.now() - 3 * 3600000);
   const minutos = br.getUTCHours() * 60 + br.getUTCMinutes();
-  return minutos < 360; // true = dentro de 00h-06h BRT, geração deve ficar bloqueada
+  return minutos < 360 || minutos >= 1020; // ativo só 06h-17h BRT (360-1020 min); fora disso, bloqueado
 }
 function badSourceImageUrl(url) {
   if (!url || url.length < 12) return true;
