@@ -1157,7 +1157,7 @@ async function autoMaterias(req, res, rec) {
   const MAX_DIA = 80;
   const hoje = await contarHoje();
   if (hoje >= MAX_DIA) return res.status(200).json({ status: "limite_diario_atingido", limite: MAX_DIA, hoje, generated: 0 });
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "materias", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "materias", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("portal");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "materias", ...cotaOvc, generated: 0 });
   const cat = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
@@ -1283,7 +1283,7 @@ async function autoFutebolCurtinhas(req, res, rec) {
   if (hojeEsportes >= limiteEsportes) {
     return res.status(200).json({ status: "limite_diario_atingido", tipo: "futebol_jornal", limite: limiteEsportes, hoje: hojeEsportes, generated: 0 });
   }
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "esportes_radar", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "esportes_radar", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("esportes_radar");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "futebol_jornal", ...cotaOvc, generated: 0 });
   const FUTEBOL_KW = [
@@ -1473,7 +1473,7 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
   if (hojeEsportes >= limiteEsportes) {
     return res.status(200).json({ status: "limite_diario_atingido", tipo: "outros_esportes_jornal", limite: limiteEsportes, hoje: hojeEsportes, generated: 0 });
   }
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "esportes_radar", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "esportes_radar", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("esportes_radar");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "outros_esportes_jornal", ...cotaOvc, generated: 0 });
   const esportes = await getNewsByCategoria("esportes");
@@ -1857,7 +1857,7 @@ async function autoBrasilOn(req, res, rec) {
   const isCronTrigger = req.method === "GET" && req.query?.pass === CRON_TOKEN;
   const body = isCronTrigger ? { ...req.query } : (req.body || {});
   const count = Math.min(parseInt(body.count) || 2, 4);
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "brasilon", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "brasilon", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("brasilon");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "brasilon", ...cotaOvc, generated: 0 });
   // 20/09/2026 — Roberto: "a essa hora da madrugada não vai ter nada
@@ -1992,7 +1992,7 @@ async function autoJovempanPolitica(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "jovempan_politica", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "jovempan_politica", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("jovempan_politica");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "jovempan_politica", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosJovempanPolitica();
@@ -2089,7 +2089,7 @@ async function autoInternacional(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "internacional", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "internacional", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("internacional");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "internacional", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosInternacional();
@@ -2188,7 +2188,7 @@ async function autoEconomia(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "economia_mercado", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "economia_mercado", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("economia_mercado");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "economia_mercado", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosEconomia();
@@ -2289,7 +2289,7 @@ async function autoFofocas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
-  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-00h BRT", tipo: "fofocas", generated: 0 });
+  if (pausaNoturnaAtiva()) return res.status(200).json({ status: "pausado_madrugada", janela: "06h-17h BRT", tipo: "fofocas", generated: 0 });
   const cotaOvc = await cotaOvcDisponivel("fofocas");
   if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "fofocas", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosFofocas();
