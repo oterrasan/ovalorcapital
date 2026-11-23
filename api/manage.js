@@ -3702,7 +3702,8 @@ async function handleTrackView(res, body) {
 
 // Roberto (31/07/2026): apenas estes colunistas devem aparecer em qualquer lugar do portal.
 // flavio-breghiroli adicionado em 16/11/2026 (colunista de Tecnologia, Ciência e Inovação).
-const ALLOWED_COLUNISTAS_SLUGS = ["roberto-terrasan", "beta-ferreira", "adriana-ferreira", "michele-froiz", "prof-marcos-pizzolatto", "taisa-da-fonseca", "flavio-breghiroli"];
+// aline-penedo-garcia adicionada em 23/11/2026 (colunista de Política).
+const ALLOWED_COLUNISTAS_SLUGS = ["roberto-terrasan", "beta-ferreira", "adriana-ferreira", "michele-froiz", "prof-marcos-pizzolatto", "taisa-da-fonseca", "flavio-breghiroli", "aline-penedo-garcia"];
 
 async function handleListColunistas(res) {
   let { data, error } = await supabase
