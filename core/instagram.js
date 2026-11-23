@@ -110,6 +110,8 @@ export function collaboratorForSubject(post) {
 // Só handles que Roberto confirmou de verdade — nunca adivinhado.
 // flavio-breghiroli: confirmado por print do perfil real (verificado) em
 // 16/11/2026 — @com.flavio.breghiroli.garcia.
+// aline-penedo-garcia: confirmado por print do perfil real (verificado,
+// 122 mil seguidores) em 23/11/2026 — @alinepenedogarcia.
 // roberto-terrasan/beta-ferreira/adriana-ferreira/michele-froiz: mesma
 // pessoa dos handles já usados em COLLAB_POR_ASSUNTO/REEL_COLLABORATORS
 // acima.
@@ -120,7 +122,8 @@ const COLUNISTA_INSTAGRAM = {
   "beta-ferreira": "souabetaferreira",
   "adriana-ferreira": "adriana.ferreirasp",
   "michele-froiz": "amichelefroes",
-  "flavio-breghiroli": "com.flavio.breghiroli.garcia"
+  "flavio-breghiroli": "com.flavio.breghiroli.garcia",
+  "aline-penedo-garcia": "alinepenedogarcia"
 };
 
 // Independente de collaboratorForFeedPost (travada em null desde
