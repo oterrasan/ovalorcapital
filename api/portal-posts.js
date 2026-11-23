@@ -167,6 +167,24 @@ async function handleOne(req, res) {
     row = result.data?.[0] || null;
   }
 
+  // 23/11/2026 — 🔴 BUG REAL: /og?id=XXXX (vercel.json rewrite "^/og/?$" →
+  // este handler com format=og) nunca devolveu uma página de verdade, só
+  // este JSON cru — exatamente o que acontecia quando Roberto compartilhava
+  // uma matéria pelos botões de "Compartilhar esta matéria" (bug real e
+  // separado, já corrigido em public/js/internal-page-v2.js, que gerava
+  // esse link). Mas qualquer link já compartilhado antes do fix (WhatsApp,
+  // Instagram, etc) continuava — e continuaria pra sempre — quebrado.
+  // Redireciona pra URL real do artigo só quando vem explicitamente via
+  // format=og; a chamada interna de JSON normal (fetch('/api/portal-
+  // posts?id=...') em internal-page*.js/_materia/index.html, sem esse
+  // parâmetro) continua devolvendo JSON, sem quebrar nada.
+  if (req.query.format === "og") {
+    if (!row) { res.setHeader("Location", "/"); return res.status(302).end(); }
+    const url = formatPost(row, false).url;
+    res.setHeader("Location", `https://www.ovalorcapital.com.br${url}`);
+    return res.status(301).end();
+  }
+
   if (!row) return res.status(404).json({ error: "not_found" });
   row.video_url = await findPostVideo(row.id);
   return res.status(200).json(formatPost(row, true));

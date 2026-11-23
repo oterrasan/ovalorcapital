@@ -178,10 +178,14 @@
   }
 
   function renderShare(titulo, urlRel){
-    var full = 'https://ovalorcapital.com.br'+urlRel;
-    var idMatch = urlRel.match(/[?&]id=([a-f0-9-]+)/i) || urlRel.match(/-([a-f0-9]{8})\/?$/i);
-    var shareUrl = idMatch ? 'https://ovalorcapital.com.br/og?id='+idMatch[1] : full;
-    var eu = encodeURIComponent(shareUrl);
+    // 23/11/2026 — 🔴 BUG REAL: compartilhava via /og?id=XXXX (rota que só
+    // devolve JSON cru, handleOne() em api/portal-posts.js — nunca uma
+    // página real) e sem "www" — Roberto reportou link quebrado no
+    // WhatsApp (abre JSON na tela, sem imagem/preview) em toda matéria
+    // compartilhada pelos botões desta barra. Troca por sempre usar a URL
+    // canônica real (com www, igual todo o resto do portal).
+    var full = 'https://www.ovalorcapital.com.br'+urlRel;
+    var eu = encodeURIComponent(full);
     var et = encodeURIComponent((titulo||'O Valor Capital')+' — O Valor Capital');
     var copyFull = full.replace(/'/g,"\\'");
     return '<div style="margin:18px 0 26px;">'
