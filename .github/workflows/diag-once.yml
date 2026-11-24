@@ -29,3 +29,11 @@ jobs:
           URL="https://yntwvfcxjardzafdqanj.supabase.co"
           curl -s "$URL/rest/v1/config?select=value&key=eq.COLUNISTAS_PHOTOS" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool
+      - name: Listar storage posts-images/colunistas
+        run: |
+          set -e
+          KEY=$(node -e "console.log(require('fs').readFileSync('core/instagram.js','utf8').match(/SUPABASE_KEY \|\| \"([^\"]+)\"/)[1])")
+          URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          curl -s -X POST "$URL/storage/v1/object/list/posts-images" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d '{"prefix":"colunistas","limit":100}' | python3 -m json.tool
