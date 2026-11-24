@@ -22,3 +22,10 @@ jobs:
           echo "=== colunistas (taisa) ==="
           curl -s "$URL/rest/v1/colunistas?select=id,nome,slug,email,ativo&slug=eq.taisa-da-fonseca" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool
+      - name: Checar config COLUNISTAS_PHOTOS
+        run: |
+          set -e
+          KEY=$(node -e "console.log(require('fs').readFileSync('core/instagram.js','utf8').match(/SUPABASE_KEY \|\| \"([^\"]+)\"/)[1])")
+          URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          curl -s "$URL/rest/v1/config?select=value&key=eq.COLUNISTAS_PHOTOS" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool
