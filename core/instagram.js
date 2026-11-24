@@ -138,11 +138,27 @@ const COLUNISTA_INSTAGRAM = {
 // Independente de collaboratorForFeedPost (travada em null desde
 // 01/10/2026, ver comentário acima dela) — crédito ao autor de uma coluna
 // pessoal é uma regra à parte, roda mesmo com o feed-por-assunto desligado.
+// 24/11/2026 — Roberto: "todas as colunas, devem ir para seus colunistas
+// para que aceitem as colabs, eu devo recber no @oterrasan com aceite e
+// curtida automatica e o @brasilon deve aceitar e curtir automaticamente
+// tambem." Toda coluna (post com subcategoria_slug de colunista, mesmo sem
+// handle confirmado — ver COLUNISTA_INSTAGRAM) agora retorna até 3
+// colaboradores: o próprio colunista + @oterrasan + @obrasilon, sempre
+// com a tag "feed_coluna" — que já bypassa NEVER_AUTO_ACCEPT/
+// REEL_ONLY_AUTO_ACCEPT em acceptCollabsForMedia pra qualquer nome. Os
+// dois últimos têm conta real conectada em ig_accounts (token válido),
+// então aceitam+curtem sozinhos; o colunista só aceita automático se
+// também tiver conta conectada — hoje só Flávio/Taísa/Pizzolatto não têm,
+// então continuam manuais pra eles, exatamente como antes.
 export function collaboratorForColunista(post) {
-  if (!post) return null;
+  if (!post) return [];
   const slug = String(post.subcategoria_slug || "").trim().toLowerCase();
-  if (!slug) return null;
-  return COLUNISTA_INSTAGRAM[slug] || null;
+  if (!slug) return [];
+  const autor = COLUNISTA_INSTAGRAM[slug];
+  const nomes = [autor, "oterrasan", "obrasilon"]
+    .filter(Boolean)
+    .map(n => String(n).replace(/^@/, "").toLowerCase());
+  return [...new Set(nomes)];
 }
 
 const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
@@ -185,8 +201,9 @@ async function writeLog(level, message) {
   try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
 }
 
-// kind: "reel" → sempre @oterrasan. "feed" → opts.collaborator (dono do
-// assunto, calculado por quem chama com collaboratorForFeedPost) ou nenhum.
+// kind: "reel" → sempre @oterrasan. "feed" → opts.collaborators (array —
+// usado pelas colunas, ver collaboratorForColunista) tem prioridade; sem
+// array, cai pro opts.collaborator único de sempre (assunto/feedPost).
 function collaboratorsFor(publisherUsername, kind, opts = {}) {
   const publisher = String(publisherUsername || "").replace(/^@/, "").toLowerCase();
   // 28/09/2026 — Roberto (teste de alcance): quando a conta que posta NÃO é
@@ -196,8 +213,15 @@ function collaboratorsFor(publisherUsername, kind, opts = {}) {
     return [DEFAULT_ACCOUNT_USERNAME];
   }
   if (kind === "reel") return REEL_COLLABORATORS.filter(nome => nome !== publisher);
-  const nome = String(opts.collaborator || "").replace(/^@/, "").toLowerCase();
-  return nome && nome !== publisher ? [nome] : [];
+  // 24/11/2026 — opts.collaborators (array, coluna) vence; opts.collaborator
+  // (string única, assunto/feedPost) é o fallback de sempre.
+  const lista = Array.isArray(opts.collaborators) && opts.collaborators.length
+    ? opts.collaborators
+    : (opts.collaborator ? [opts.collaborator] : []);
+  const nomes = lista
+    .map(n => String(n || "").replace(/^@/, "").toLowerCase())
+    .filter(n => n && n !== publisher);
+  return [...new Set(nomes)];
 }
 
 // 28/09/2026 — 🔴 causa real confirmada com dado de produção: publicar do

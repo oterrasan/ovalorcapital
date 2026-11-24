@@ -1016,9 +1016,9 @@ async function handleIgPublish(req, res, body) {
     const instagramImage = cartaoIronico
       ? await prepareInstagramIronicCard({ postId: post.id, supabase, paragraphs: ironicParagraphs, highlights: ironicHighlights, layout: ironicLayout, backgroundImageUrl: ironicBackgroundImageUrl })
       : await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo, tags: post.user_tags });
-    const colunistaHandle = collaboratorForColunista(post);
-    const subjectHandle = colunistaHandle ? null : collaboratorForSubject(post);
-    const ig = await publish(instagramImage.url, caption, accountId, { collaborator: colunistaHandle || subjectHandle || collaboratorForFeedPost(post), colunistaCollab: Boolean(colunistaHandle), subjectCollab: Boolean(subjectHandle) });
+    const colunistaHandles = collaboratorForColunista(post);
+    const subjectHandle = colunistaHandles.length ? null : collaboratorForSubject(post);
+    const ig = await publish(instagramImage.url, caption, accountId, { collaborators: colunistaHandles, collaborator: subjectHandle || collaboratorForFeedPost(post), colunistaCollab: Boolean(colunistaHandles.length), subjectCollab: Boolean(subjectHandle) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
@@ -1717,9 +1717,9 @@ async function _publicarPostFeedAutomatico(post, account, opts) {
     const { prepareInstagramImage } = await _loadInstagramImage();
     const { publish, collaboratorForFeedPost, collaboratorForColunista, collaboratorForSubject, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo, tags: post.user_tags });
-    const colunistaHandle = collaboratorForColunista(post);
-    const subjectHandle = colunistaHandle ? null : collaboratorForSubject(post);
-    const ig = await publish(instagramImage.url, caption, account.id, { collaborator: colunistaHandle || subjectHandle || collaboratorForFeedPost(post), colunistaCollab: Boolean(colunistaHandle), subjectCollab: Boolean(subjectHandle) });
+    const colunistaHandles = collaboratorForColunista(post);
+    const subjectHandle = colunistaHandles.length ? null : collaboratorForSubject(post);
+    const ig = await publish(instagramImage.url, caption, account.id, { collaborators: colunistaHandles, collaborator: subjectHandle || collaboratorForFeedPost(post), colunistaCollab: Boolean(colunistaHandles.length), subjectCollab: Boolean(subjectHandle) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
