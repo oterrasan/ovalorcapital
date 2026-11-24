@@ -115,15 +115,24 @@ export function collaboratorForSubject(post) {
 // roberto-terrasan/beta-ferreira/adriana-ferreira/michele-froiz: mesma
 // pessoa dos handles já usados em COLLAB_POR_ASSUNTO/REEL_COLLABORATORS
 // acima.
-// prof-marcos-pizzolatto e taisa-da-fonseca: SEM handle confirmado ainda —
-// ficam de fora até Roberto informar.
+// prof-marcos-pizzolatto: SEM handle confirmado ainda — fica de fora até
+// Roberto informar.
+// 24/11/2026 — taisa-da-fonseca: @taisadafonseca — não precisou perguntar
+// de novo, já estava na própria assinatura de toda coluna dela publicada
+// ("Sociedade Fashionista por @taisadafonseca"), confirmado também por link
+// clicável real (href="https://www.instagram.com/taisadafonseca") num dos
+// posts. Sem conta conectada em ig_accounts — igual Flávio, só recebe a
+// marcação de colaborador e aceita manualmente no próprio Instagram dela,
+// nunca aceite automático (Roberto foi explícito: "O INSTAGRAM DELA SÓ
+// RECEBE COLAB... NAO TEM ACEITE AUTOMATICO").
 const COLUNISTA_INSTAGRAM = {
   "roberto-terrasan": "oterrasan",
   "beta-ferreira": "souabetaferreira",
   "adriana-ferreira": "adriana.ferreirasp",
   "michele-froiz": "amichelefroes",
   "flavio-breghiroli": "com.flavio.breghiroli.garcia",
-  "aline-penedo-garcia": "alinepenedogarcia"
+  "aline-penedo-garcia": "alinepenedogarcia",
+  "taisa-da-fonseca": "taisadafonseca"
 };
 
 // Independente de collaboratorForFeedPost (travada em null desde
