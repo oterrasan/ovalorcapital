@@ -5,5 +5,20 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - uses: actions/checkout@v4
+      - name: Investigar posts recentes da Taisa da Fonseca
+        run: |
+          set -e
+          KEY=$(node -e "console.log(require('fs').readFileSync('core/instagram.js','utf8').match(/SUPABASE_KEY \|\| \"([^\"]+)\"/)[1])")
+          URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          echo "=== POSTS SUBCATEGORIA taisa-da-fonseca (5 mais recentes) ==="
+          curl -s "$URL/rest/v1/posts?select=id,titulo,subcategoria_slug,publish_method,status,approved,created_at,published_at,video_url,imagem,comentario_fixado&subcategoria_slug=eq.taisa-da-fonseca&order=created_at.desc&limit=5" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool
+          echo ""
+          echo "=== BUSCA POR TITULO (elegancia/elegância masculina) ==="
+          curl -s "$URL/rest/v1/posts?select=id,titulo,subcategoria_slug,publish_method,status,approved,created_at,published_at,video_url,imagem&titulo=ilike.*leg%C3%A2ncia*masculina*&order=created_at.desc&limit=10" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool
+          echo ""
+          echo "=== colunistas (taisa) ==="
+          curl -s "$URL/rest/v1/colunistas?select=id,nome,slug,email,ativo&slug=eq.taisa-da-fonseca" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool
