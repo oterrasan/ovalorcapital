@@ -295,6 +295,30 @@ function standardMain(categoryLabel, description) {
   return `<main class="ovc-main"><section class="ovc-section-hero"><div class="ovc-panel ovc-hero"><span class="ovc-badge">${esc(categoryLabel)}</span><h1>${esc(categoryLabel)}</h1><p>${esc(description)}</p></div><aside class="ovc-panel ovc-weather"><h3>Leitura rápida</h3><div class="temp">${esc(categoryLabel)}</div><p>Conteúdo organizado no mesmo padrão editorial do portal, com coluna principal, lateral, imagens e módulos de apoio.</p><div class="ovc-banner-slot"><div><strong>Espaço premium</strong><span>Área preparada para publicidade e chamadas institucionais.</span></div><a class="ovc-btn secondary" href="/anuncie/">Anuncie</a></div></aside></section><section class="ovc-grid"><div class="ovc-story-stack"><div class="ovc-panel" data-hero-card></div><div class="ovc-panel ovc-story-list"><h3>Principais notícias</h3><div class="ovc-mini-list" data-main-list></div></div><div class="ovc-panel ovc-story-list"><h3>Mais da seção</h3><div class="ovc-mini-list" data-local-list></div></div></div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main>`;
 }
 
+// 24/11/2026 — Roberto (print real do WhatsApp): link da página de UM
+// colunista específico (ex.: /colunistas/taisa-da-fonseca/) sempre mostrava
+// a logo genérica do site como thumbnail, nunca a foto real do colunista.
+// Causa: og:image/twitter:image desta rota estavam hardcoded em OG_DEFAULT
+// pra TODAS as páginas de categoria, inclusive as de colunista individual.
+// config.COLUNISTAS_PHOTOS está vazio em produção ({}, confirmado via
+// diag real) — a fonte de verdade de fato é o Storage
+// (posts-images/colunistas/{slug}.{ext}, mesmo padrão já usado em
+// api/manage.js's getColunistaPhotoMap()). Reimplementado aqui, escopado
+// a 1 slug só (não a lista inteira), pra não puxar o diretório todo numa
+// página que já é sempre no-cache.
+async function getColunistaFotoUrl(slug) {
+  if (!slug) return null;
+  try {
+    const { data, error } = await supabase.storage.from("posts-images").list("colunistas", { search: slug, limit: 5 });
+    if (error) return null;
+    const match = (data || []).find(f => f?.name && f.name.replace(/\.[^.]+$/, "").toLowerCase() === slug);
+    if (!match) return null;
+    return `${SUPABASE_URL}/storage/v1/object/public/posts-images/colunistas/${match.name}`;
+  } catch (_) {
+    return null;
+  }
+}
+
 function normalizeCategoryLayout(html, cat, label, desc, section) {
   html = setBodyAttr(html, "data-category", cat);
   html = setBodyAttr(html, "data-section", section || "geral");
@@ -350,6 +374,12 @@ export default async function handler(req, res) {
     : seo.desc;
   const canonical = sectionLabel ? seo.canonical.replace(/\/$/, `/${rawSection}/`) : seo.canonical;
   const pageTitle = sectionLabel ? `${sectionLabel} | ${SITE}` : seo.title;
+  // 24/11/2026 — página de UM colunista específico usa a foto real dele
+  // como og:image, quando existe no Storage; a listagem geral /colunistas/
+  // (sem sectionLabel) continua com OG_DEFAULT.
+  const ogImage = (cat === "colunistas" && sectionLabel)
+    ? ((await getColunistaFotoUrl(rawSection)) || OG_DEFAULT)
+    : OG_DEFAULT;
 
   const tpl = getTemplate(seo.tplPath);
   if (!tpl) return res.status(500).send("Template error");
@@ -377,14 +407,14 @@ export default async function handler(req, res) {
     `<meta property="og:site_name" content="${SITE}">`,
     `<meta property="og:title" content="${esc(pageTitle)}">`,
     `<meta property="og:description" content="${esc(pageDesc)}">`,
-    `<meta property="og:image" content="${OG_DEFAULT}">`,
+    `<meta property="og:image" content="${ogImage}">`,
     `<meta property="og:url" content="${canonical}">`,
     `<meta property="og:locale" content="pt_BR">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:site" content="@ovalorcapital">`,
     `<meta name="twitter:title" content="${esc(pageTitle)}">`,
     `<meta name="twitter:description" content="${esc(pageDesc)}">`,
-    `<meta name="twitter:image" content="${OG_DEFAULT}">`,
+    `<meta name="twitter:image" content="${ogImage}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
     `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`,
   ].join("\n");
