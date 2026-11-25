@@ -468,9 +468,9 @@ async function handleLiveData(res) {
   const tvChannels = [
     ...(youtubeUrl ? [{ label: "TV OVC", url: youtubeUrl, group: "ao vivo", kind: "embed" }] : []),
     ...(configTv.length ? configTv : [
-      { label: "TV Câmara", url: "https://www.youtube.com/embed/live_stream?channel=UCcr3e8PiJTJDlLkwE_9vlqg", group: "institucional", kind: "embed" },
-      { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCccCfUCGP-6s8X6-_VQ8RFA", group: "institucional", kind: "embed" },
-      { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCcLvHFM2XLj2JqLwFAjpHUw", group: "pública", kind: "embed" },
+      { label: "TV Câmara", url: "https://stream3.camara.gov.br/tv1/manifest.m3u8", group: "institucional — 24h", kind: "hls" },
+      { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCLgti7NuK0RuW9wty-fxPjQ", group: "institucional", kind: "youtube" },
+      { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCSv9d0kQegylHWpP83jWSQg", group: "pública", kind: "youtube" },
     ])
   ];
 

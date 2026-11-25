@@ -17,7 +17,7 @@
   }
   ensureLiveRails();
   const script = document.createElement('script');
-  script.src = '/js/live-pages-core.js?v=5';
+  script.src = '/js/live-pages-core.js?v=6';
   script.async = false;
   script.onload = function(){
     if (document.readyState !== 'loading') document.dispatchEvent(new Event('DOMContentLoaded'));

@@ -728,7 +728,8 @@ img, video, iframe, embed, object {
   }
 
   .ovc-live-frame,
-  .ovc-live-frame iframe {
+  .ovc-live-frame iframe,
+  .ovc-live-frame video {
     min-height: 200px;
     height: 200px;
   }
