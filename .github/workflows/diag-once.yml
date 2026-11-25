@@ -1,9 +1,61 @@
 name: diag-once (temporario)
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - name: Checagem geral do sistema
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          set -e
+          echo "=== SITE OVC ==="
+          curl -s -o /dev/null -w "HOME HTTP:%{http_code} TIME:%{time_total}s\n" https://www.ovalorcapital.com.br/ || true
+          curl -s -o /dev/null -w "ADMIN HTTP:%{http_code}\n" https://www.ovalorcapital.com.br/admin/ || true
+          echo "=== SITE BRASIL ON ==="
+          curl -s -o /dev/null -w "BON HTTP:%{http_code}\n" https://www.obrasilon.com.br/ || true
+
+          echo "=== FLAGS CONFIG ==="
+          for k in SISTEMA_LIGADO AUTOMATION IG_AUTOMATION_ENABLED REELS_AUTOMATION_ENABLED REELS_CAPTURA_ENABLED BON_IG_ENABLED BON_REEL_ENABLED ESPORTES_LIMITE_DIARIO OVC_LIMITE_DIARIO_TOTAL; do
+            v=$(curl -s "$SUPABASE_URL/rest/v1/config?select=value&key=eq.$k" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY")
+            echo "$k = $v"
+          done
+
+          echo "=== GEMINI KEYS (vivas?) ==="
+          for i in "" "_2" "_3"; do
+            k="GEMINI_API_KEY$i"
+            v=$(curl -s "$SUPABASE_URL/rest/v1/config?select=value&key=eq.$k" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['value'] if d else 'AUSENTE')")
+            if [ "$v" = "AUSENTE" ]; then
+              echo "$k: AUSENTE"
+            else
+              code=$(curl -s -o /dev/null -w "%{http_code}" "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$v" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"ok"}]}]}')
+              echo "$k: HTTP $code"
+            fi
+          done
+
+          echo "=== POSTS NAS ULTIMAS 4 HORAS (por publish_method) ==="
+          now=$(date -u +%Y-%m-%dT%H:%M:%S)
+          since=$(date -u -d '4 hours ago' +%Y-%m-%dT%H:%M:%S)
+          curl -s "$SUPABASE_URL/rest/v1/posts?select=titulo,publish_method,created_at,status&created_at=gte.$since&order=created_at.desc&limit=15" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | python3 -m json.tool
+
+          echo "=== CONTAGEM POR CANAL (ultimas 24h) ==="
+          since24=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%S)
+          for m in portal brasilon jovempan_politica internacional economia_mercado esportes_radar fofocas link_manual; do
+            cr=$(curl -s -o /dev/null -w "%{header_json}" -H "Prefer: count=exact" "$SUPABASE_URL/rest/v1/posts?select=id&publish_method=eq.$m&created_at=gte.$since24" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | python3 -c "import sys,json; h=json.load(sys.stdin); print(h.get('content-range',['?'])[0])")
+            echo "$m: $cr"
+          done
+
+          echo "=== ULTIMO POST (qualquer canal) ==="
+          curl -s "$SUPABASE_URL/rest/v1/posts?select=titulo,publish_method,created_at,status&order=created_at.desc&limit=3" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | python3 -m json.tool
+
+          echo "=== HORA ATUAL ==="
+          date -u
+          TZ=America/Sao_Paulo date
