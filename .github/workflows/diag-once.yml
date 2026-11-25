@@ -5,39 +5,19 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Reteste real dos 4 canais - agora (06h BRT)
+      - name: Inspecionar resposta real do youtube (possivel rate limit)
         run: |
-          cat > /tmp/diag_retest.sh << 'DIAGEOF'
-          #!/usr/bin/env bash
-          set -uo pipefail
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-          echo "Hora do teste (UTC): $(date -u)"
+          echo "--- headers da resposta ---"
+          curl -sL -A "$UA" --max-time 15 -D - -o /tmp/watch.html "https://www.youtube.com/watch?v=YE4oPGJS5z4" | head -20
+          echo "--- tamanho do body ---"
+          wc -c /tmp/watch.html
+          echo "--- primeiros 2000 chars do body ---"
+          head -c 2000 /tmp/watch.html
           echo
-
-          declare -A CHANNELS=(
-            ["tv-senado"]="UCLgti7NuK0RuW9wty-fxPjQ"
-            ["tv-brasil"]="UCSv9d0kQegylHWpP83jWSQg"
-            ["tv-justica"]="UCvZbqQ3yuXJHcjehr9nyXvw"
-            ["tv-cultura"]="UCjOJvvYe6tyEHY21OD33h8A"
-          )
-
-          for name in "${!CHANNELS[@]}"; do
-            cid="${CHANNELS[$name]}"
-            echo "===== $name ($cid) ====="
-            live_html=$(curl -sL -A "$UA" --max-time 15 "https://www.youtube.com/channel/${cid}/live" || true)
-            canonical_vid=$(echo "$live_html" | grep -oE '<link rel="canonical" href="https://www.youtube.com/watch\?v=[A-Za-z0-9_-]{11}"' | head -1 | grep -oE '[A-Za-z0-9_-]{11}"' | tr -d '"')
-            vid=$(echo "$live_html" | grep -oE '"videoId":"[A-Za-z0-9_-]{11}"' | head -1 | sed -E 's/.*"([A-Za-z0-9_-]{11})"/\1/')
-            real_vid="${canonical_vid:-$vid}"
-            echo "videoId resolvido: ${real_vid:-NENHUM}"
-            if [ -n "$real_vid" ]; then
-              watch_html=$(curl -sL -A "$UA" --max-time 15 "https://www.youtube.com/watch?v=${real_vid}" || true)
-              status=$(echo "$watch_html" | grep -oE '"playabilityStatus":\{"status":"[A-Z_]+"' | head -1)
-              isLiveNow=$(echo "$watch_html" | grep -oE '"isLiveNow":(true|false)' | head -1)
-              title=$(echo "$watch_html" | grep -oE '<title>[^<]*</title>' | head -1)
-              echo "status: $status | $isLiveNow"
-              echo "title: $title"
-            fi
-            echo
-          done
-          DIAGEOF
-          bash /tmp/diag_retest.sh
+          echo "--- contem 'consent'? ---"
+          grep -c -i "consent" /tmp/watch.html || true
+          echo "--- contem 'ytInitialPlayerResponse'? ---"
+          grep -c "ytInitialPlayerResponse" /tmp/watch.html || true
+          echo "--- contem captcha/unusual traffic? ---"
+          grep -c -i "unusual traffic\|captcha" /tmp/watch.html || true
