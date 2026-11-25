@@ -1,9 +1,27 @@
 name: diag-once (temporario)
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - name: Testar streams reais de radios publicas
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+          check() {
+            local nome="$1"
+            local url="$2"
+            echo "=== $nome ==="
+            echo "url: $url"
+            curl -sI -A "$UA" --max-time 12 "$url" 2>&1 | head -8
+            echo "---"
+          }
+          check "Radio Senado (fm.mp3)" "http://radioaovivo.senado.leg.br/fm.mp3"
+          check "Radio Senado (canal2)" "http://radioaovivo.senado.gov.br/canal2.mp3"
+          check "Radio Camara (stream3)" "https://stream3.camara.leg.br/radiocamara1t64"
+          echo "=== buscando streams EBC / Radio Nacional / Radio Justica ==="
+          check "EBC radios page" "https://radios.ebc.com.br/"
