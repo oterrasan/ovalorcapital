@@ -5,11 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar /api/live-data real em produção, pós-deploy do PR #944
-        run: |
-          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/api/live-data" -o /tmp/live.json || echo "CURL_FALHOU"
-          echo "--- body completo ---"
-          cat /tmp/live.json
-          echo ""
-          echo "--- status HTTP isolado ---"
-          curl -sS -o /dev/null -w "%{http_code}\n" --max-time 15 "https://www.ovalorcapital.com.br/api/live-data"
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
