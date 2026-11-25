@@ -5,41 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Checar watch pages (tamanho/conteudo real) + retestar HLS
-        run: |
-          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-          date -u
-          for pair in \
-            "tv-senado:bItgqiFhdpU" \
-            "tv-brasil:0CbBZI6cTzg" \
-            "tv-justica:e4ZV3KzRaxE" \
-            "tv-cultura:WmPoqI5VBbM" \
-          ; do
-            id="${pair%%:*}"
-            vid="${pair##*:}"
-            echo "=== $id (watch?v=$vid) ==="
-            curl -sL -A "$UA" --max-time 15 -o /tmp/w_$id.html "https://www.youtube.com/watch?v=$vid"
-            echo "tamanho body: $(wc -c < /tmp/w_$id.html)"
-            echo "tem ytInitialPlayerResponse? $(grep -c 'ytInitialPlayerResponse' /tmp/w_$id.html || true)"
-            echo "tem consent/unusual traffic/robot? $(grep -c -i -E 'consent\.youtube|unusual traffic|are not a robot|prove you' /tmp/w_$id.html || true)"
-            echo "playabilityStatus (ocorrencias soltas): $(grep -o 'playabilityStatus' /tmp/w_$id.html | wc -l)"
-            status_real=$(grep -oE '"playabilityStatus":\{"status":"[A-Z_]+"' /tmp/w_$id.html | head -1)
-            islive_real=$(grep -oE '"isLiveNow":(true|false)' /tmp/w_$id.html | head -1)
-            echo "status real: ${status_real:-NAO_ENCONTRADO}"
-            echo "isLiveNow real: ${islive_real:-NAO_ENCONTRADO}"
-            echo "primeiros 300 chars do body:"
-            head -c 300 /tmp/w_$id.html
-            echo ""
-            echo ""
-          done
-          echo "=== Retestando HLS TV Camara (3 tentativas) ==="
-          for i in 1 2 3; do
-            echo "-- tentativa $i --"
-            curl -sS -o /dev/null -w "HTTP:%{http_code} tempo:%{time_total}s\n" --max-time 10 "https://stream3.camara.gov.br/tv1/manifest.m3u8"
-            sleep 2
-          done
-          echo "=== HLS com headers completos (debug) ==="
-          curl -sS -D - -o /tmp/hls.body --max-time 10 "https://stream3.camara.gov.br/tv1/manifest.m3u8" || true
-          echo "--- body (se houver) ---"
-          cat /tmp/hls.body 2>/dev/null | head -c 500
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
