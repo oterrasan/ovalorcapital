@@ -5,5 +5,18 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - name: Testar /api/live-data com debug=tv em produção real
+        run: |
+          echo "=== HTTP status ==="
+          curl -sS -D /tmp/headers.txt -o /tmp/resp.json --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data&debug=tv"
+          head -1 /tmp/headers.txt
+          echo ""
+          echo "=== corpo completo ==="
+          cat /tmp/resp.json
+          echo ""
+          echo ""
+          echo "=== tv[] via jq ==="
+          jq '.tv' /tmp/resp.json
+          echo ""
+          echo "=== tvDebug via jq ==="
+          jq '.tvDebug' /tmp/resp.json
