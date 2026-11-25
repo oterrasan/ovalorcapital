@@ -9,7 +9,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Descobrir channel IDs reais de TVs publicas
+      - name: Descobrir channel IDs reais de TVs publicas - rodada 2
         run: |
           set -e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -18,17 +18,23 @@ jobs:
             local handle="$2"
             echo "=== $nome ($handle) ==="
             html=$(curl -sL -A "$UA" "https://www.youtube.com/$handle" --max-time 15 || true)
-            cid=$(echo "$html" | grep -oP '"channelId":"UC[A-Za-z0-9_-]{22}"' | head -1)
-            canonical=$(echo "$html" | grep -oP '<link rel="canonical" href="[^"]*channel/UC[A-Za-z0-9_-]{22}' | head -1)
-            echo "channelId: $cid"
-            echo "canonical: $canonical"
-            live=$(curl -sL -A "$UA" "https://www.youtube.com/$handle/live" --max-time 15 -o /dev/null -w "%{http_code} -> %{url_effective}" || true)
-            echo "live redirect: $live"
+            canonical=$(echo "$html" | grep -oP '<link rel="canonical" href="[^"]*channel/UC[A-Za-z0-9_-]{22}' | head -1 | grep -oP 'UC[A-Za-z0-9_-]{22}')
+            title=$(echo "$html" | grep -oP '<title>[^<]*' | head -1)
+            echo "canonical_id: $canonical"
+            echo "title: $title"
+            live_code=$(curl -sL -A "$UA" "https://www.youtube.com/$handle/live" --max-time 15 -o /tmp/live.html -w "%{http_code}" || true)
+            live_title=$(grep -oP '<title>[^<]*' /tmp/live.html | head -1)
+            echo "live http: $live_code | live title: $live_title"
           }
-          check "TV Camara" "@tvcamara"
-          check "TV Camara (alt)" "@camaraleg"
           check "TV Senado" "@tvsenado"
           check "TV Brasil" "@tvbrasil"
           check "TV Justica" "@tvjustica"
-          check "EBC/NBR" "@nbr"
-          check "Gov.br" "@govbr"
+          check "Camara Noticias" "@camaranoticias"
+          check "Canal da Camara" "@canaldacamara"
+          check "Camara dos Deputados" "@camaradosdeputados"
+          check "CD Leg" "@cdleg"
+          check "EBC Oficial" "@ebcoficial"
+          check "Agencia Brasil" "@agenciabrasil"
+          check "Canal Saude" "@canalsaude"
+          check "STF" "@stf"
+          check "TV Cultura" "@tvcultura"
