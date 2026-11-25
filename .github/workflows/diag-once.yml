@@ -5,5 +5,39 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - name: Checar status real AGORA dos 5 canais configurados
+        run: |
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+          date -u
+          echo "=== live-config.json ==="
+          cat data/live-config.json
+          echo ""
+          for pair in \
+            "tv-senado:UCLgti7NuK0RuW9wty-fxPjQ" \
+            "tv-brasil:UCSv9d0kQegylHWpP83jWSQg" \
+            "tv-justica:UCvZbqQ3yuXJHcjehr9nyXvw" \
+            "tv-cultura:UCjOJvvYe6tyEHY21OD33h8A" \
+          ; do
+            id="${pair%%:*}"
+            ch="${pair##*:}"
+            echo "=== $id ($ch) ==="
+            curl -sL -A "$UA" --max-time 15 -o /tmp/live_$id.html "https://www.youtube.com/channel/$ch/live" || echo "CURL_FALHOU"
+            echo "tamanho body: $(wc -c < /tmp/live_$id.html)"
+            vid=$(grep -oE '"videoId":"[a-zA-Z0-9_-]{11}"' /tmp/live_$id.html | head -1 | grep -oE '[a-zA-Z0-9_-]{11}"' | tr -d '"')
+            canon=$(grep -oE '<link rel="canonical" href="https://www\.youtube\.com/watch\?v=[a-zA-Z0-9_-]{11}"' /tmp/live_$id.html | head -1 | grep -oE '[a-zA-Z0-9_-]{11}"' | tr -d '"')
+            echo "videoId (json): $vid | canonical: $canon"
+            realvid="${canon:-$vid}"
+            if [ -n "$realvid" ]; then
+              curl -sL -A "$UA" --max-time 15 -o /tmp/watch_$id.html "https://www.youtube.com/watch?v=$realvid" || echo "CURL_WATCH_FALHOU"
+              echo "status: $(grep -oE '"playabilityStatus":\{"status":"[A-Z_]+"' /tmp/watch_$id.html | head -1)"
+              echo "isLiveNow: $(grep -oE '"isLiveNow":(true|false)' /tmp/watch_$id.html | head -1)"
+            else
+              echo "SEM VIDEO ID ENCONTRADO"
+            fi
+            echo ""
+          done
+          echo "=== TV Camara (HLS) ==="
+          curl -sS -I --max-time 10 "https://stream3.camara.gov.br/tv1/manifest.m3u8" | head -5
+      - name: Checar /api/live-data real em produção agora
+        run: |
+          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/api/live-data" | head -c 3000
