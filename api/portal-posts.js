@@ -137,7 +137,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
 
-  if (req.query.format === "live-data") return handleLiveData(res);
+  if (req.query.format === "live-data") return handleLiveData(res, req.query.debug === "tv");
 
   try {
     if (req.query.id) return handleOne(req, res);
@@ -354,7 +354,7 @@ async function handleList(req, res) {
   return res.status(200).json({ posts, total: posts.length });
 }
 
-async function handleLiveData(res) {
+async function handleLiveData(res, debugTv) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
 
   // 29/09/2026 — brapi.dev passou a exigir token pra endpoint de índices
@@ -370,7 +370,7 @@ async function handleLiveData(res) {
   // de cotações abaixo, nunca depois — ver comentário completo mais abaixo,
   // perto de onde o resultado é usado. maxDuration padrão desta rota é 10s
   // (sem override em vercel.json), então as duas partes não podem somar.
-  const canaisAoVivoPromise = checarCanaisTvAoVivo();
+  const canaisAoVivoPromise = checarCanaisTvAoVivo(debugTv);
 
   const brapiToken = await getBrapiToken();
   const brapiSymbolUrl = (symbol) =>
@@ -477,7 +477,8 @@ async function handleLiveData(res) {
   // confirmado. Canais kind:'hls'/'embed' (stream próprio, sempre 24h)
   // nunca passam por essa checagem, sempre aparecem. Falha na verificação
   // = não incluído (nunca "chuta" que está ao vivo sem confirmar).
-  const tvChannels = await canaisAoVivoPromise;
+  const canaisResolvido = await canaisAoVivoPromise;
+  const tvChannels = debugTv ? canaisResolvido.list : canaisResolvido;
 
   return res.status(200).json({
     usd,
@@ -492,6 +493,7 @@ async function handleLiveData(res) {
     impostometro: impostometro(),
     ratePerSec: 114155,
     tv: tvChannels,
+    ...(debugTv ? { tvDebug: canaisResolvido.debug } : {}),
     radio: loadLiveConfig()?.radio || null,
     ts: Date.now()
   });
@@ -616,25 +618,39 @@ async function safeFetch(url) {
 }
 
 // 25/11/2026 — ver comentário em handleLiveData(). fetch de texto puro
-// (não JSON) com timeout curto, pra checar status real de canal do YouTube
-// sem travar a resposta do endpoint caso o YouTube demore/falhe. Timeout
-// agressivo (2.5s) porque essa checagem roda em paralelo com o resto do
-// handler e o endpoint não tem maxDuration customizado (teto padrão de
-// 10s do Vercel Hobby) — nunca pode ser o fator que faz a rota exceder isso.
+// (não JSON) com timeout, pra checar status real de canal do YouTube sem
+// travar a resposta do endpoint caso o YouTube demore/falhe. Essa checagem
+// roda em paralelo com o resto do handler e o endpoint não tem maxDuration
+// customizado (teto padrão de 10s do Vercel Hobby) — nunca pode ser o fator
+// que faz a rota exceder isso.
+// 25/11/2026 (2ª correção, evidência real) — confirmado com teste ao vivo
+// via GitHub Actions (rede rápida, nunca travou nem em 1s) que o teto de
+// 2,5s por fetch não era insuficiente POR SI SÓ ali — mas a rede real da
+// Vercel até o youtube.com é outra história (sem acesso direto pra medir
+// daqui). Subido pra 3,5s por fetch (7s total por canal nas 2 chamadas
+// sequenciais, 4 canais em paralelo entre si) — ainda com margem segura
+// sob o teto de 10s — e adicionado motivo exato de exclusão (timeout,
+// sem videoId, status real da página) via debugTv, pra confirmar com dado
+// real de produção, sem adivinhar, se o problema era mesmo timeout.
 async function fetchTextWithTimeout(url, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" }
     });
     clearTimeout(timer);
-    if (!response.ok) return null;
-    return await response.text();
-  } catch (_) {
+    const ms = Date.now() - startedAt;
+    if (!response.ok) return { text: null, ms, reason: `http_${response.status}` };
+    const text = await response.text();
+    return { text, ms, reason: "ok" };
+  } catch (e) {
     clearTimeout(timer);
-    return null;
+    const ms = Date.now() - startedAt;
+    const timedOut = e?.name === "AbortError";
+    return { text: null, ms, reason: timedOut ? "timeout" : `erro:${e?.message || e}` };
   }
 }
 
@@ -643,22 +659,39 @@ function extractYoutubeChannelId(url) {
   return m ? m[1] : null;
 }
 
+const YT_FETCH_TIMEOUT_MS = 3500;
+
 // Confirma com dado real (não suposição) se um canal do YouTube tem um
 // live event ativo agora: segue o redirect /live, extrai o vídeo real
 // (canonical, com fallback pro primeiro videoId do JSON) e verifica
-// isLiveNow na página do vídeo. 4,5s de teto total por canal — generoso
-// o bastante pras 2 chamadas sequenciais, mas nunca trava o endpoint por
-// muito tempo mesmo se o YouTube estiver lento.
+// isLiveNow na página do vídeo. Sempre devolve um objeto com o motivo
+// exato (live, not_live, timeout, sem_video_id, erro), usado no campo
+// tvDebug quando ?debug=tv é pedido — nunca "adivinha" se está ao vivo.
 async function isYoutubeChannelLiveNow(channelId) {
-  const liveHtml = await fetchTextWithTimeout(`https://www.youtube.com/channel/${channelId}/live`, 2500);
-  if (!liveHtml) return false;
-  const canonicalMatch = /<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/.exec(liveHtml);
-  const jsonMatch = /"videoId":"([a-zA-Z0-9_-]{11})"/.exec(liveHtml);
+  const liveFetch = await fetchTextWithTimeout(`https://www.youtube.com/channel/${channelId}/live`, YT_FETCH_TIMEOUT_MS);
+  if (!liveFetch.text) {
+    return { live: false, reason: liveFetch.reason === "timeout" ? "timeout_live_redirect" : `erro_live_redirect:${liveFetch.reason}`, msLiveRedirect: liveFetch.ms };
+  }
+  const canonicalMatch = /<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/.exec(liveFetch.text);
+  const jsonMatch = /"videoId":"([a-zA-Z0-9_-]{11})"/.exec(liveFetch.text);
   const videoId = (canonicalMatch && canonicalMatch[1]) || (jsonMatch && jsonMatch[1]);
-  if (!videoId) return false;
-  const watchHtml = await fetchTextWithTimeout(`https://www.youtube.com/watch?v=${videoId}`, 2500);
-  if (!watchHtml) return false;
-  return /"isLiveNow":true/.test(watchHtml);
+  if (!videoId) {
+    return { live: false, reason: "sem_video_id", msLiveRedirect: liveFetch.ms };
+  }
+  const watchFetch = await fetchTextWithTimeout(`https://www.youtube.com/watch?v=${videoId}`, YT_FETCH_TIMEOUT_MS);
+  if (!watchFetch.text) {
+    return { live: false, reason: watchFetch.reason === "timeout" ? "timeout_watch_page" : `erro_watch_page:${watchFetch.reason}`, videoId, msLiveRedirect: liveFetch.ms, msWatchPage: watchFetch.ms };
+  }
+  const statusMatch = /"playabilityStatus":\{"status":"([A-Z_]+)"/.exec(watchFetch.text);
+  const isLive = /"isLiveNow":true/.test(watchFetch.text);
+  return {
+    live: isLive,
+    reason: isLive ? "live" : "not_live",
+    videoId,
+    playabilityStatus: statusMatch ? statusMatch[1] : null,
+    msLiveRedirect: liveFetch.ms,
+    msWatchPage: watchFetch.ms
+  };
 }
 
 function montarTvChannelsBrutos() {
@@ -676,32 +709,41 @@ function montarTvChannelsBrutos() {
 }
 
 let _youtubeLiveStatusCache = {};
-async function checarCanaisTvAoVivo() {
+// debug=true: devolve {list, debug} (debug com o motivo exato de cada
+// canal do YouTube, só pra diagnóstico via ?debug=tv — nunca no tráfego
+// normal). debug=false (padrão): devolve só a lista, como sempre foi.
+async function checarCanaisTvAoVivo(debug) {
   const canais = montarTvChannelsBrutos();
   const agora = Date.now();
   const resultado = [];
+  const debugPorCanal = [];
   const verificacoes = canais.map(async (canal) => {
-    if (canal.kind !== "youtube") return canal; // hls/embed: sempre incluído, sem checagem
+    if (canal.kind !== "youtube") return { canal, incluido: canal, debugInfo: { label: canal.label, kind: canal.kind, reason: "nao_youtube_sempre_incluido" } };
     const channelId = extractYoutubeChannelId(canal.url);
-    if (!channelId) return null; // sem channel id reconhecível, nunca chuta — exclui
+    if (!channelId) return { canal, incluido: null, debugInfo: { label: canal.label, reason: "sem_channel_id" } }; // sem channel id reconhecível, nunca chuta — exclui
     const cached = _youtubeLiveStatusCache[channelId];
     if (cached && agora - cached.at < 90 * 1000) {
-      return cached.live ? canal : null;
+      return { canal, incluido: cached.live ? canal : null, debugInfo: { label: canal.label, channelId, ...cached.info, cache: true } };
     }
     try {
-      const live = await isYoutubeChannelLiveNow(channelId);
-      _youtubeLiveStatusCache[channelId] = { live, at: agora };
-      return live ? canal : null;
+      const info = await isYoutubeChannelLiveNow(channelId);
+      _youtubeLiveStatusCache[channelId] = { live: info.live, at: agora, info };
+      return { canal, incluido: info.live ? canal : null, debugInfo: { label: canal.label, channelId, ...info, cache: false } };
     } catch (e) {
       console.error(`[live-data] falha ao checar canal ${channelId}: ${e?.message || e}`);
-      return null; // falha na verificação: nunca inclui sem confirmação real
+      return { canal, incluido: null, debugInfo: { label: canal.label, channelId, reason: `excecao:${e?.message || e}` } }; // falha na verificação: nunca inclui sem confirmação real
     }
   });
   const resolvidos = await Promise.allSettled(verificacoes);
   for (const r of resolvidos) {
-    if (r.status === "fulfilled" && r.value) resultado.push(r.value);
+    if (r.status === "fulfilled") {
+      if (r.value.incluido) resultado.push(r.value.incluido);
+      debugPorCanal.push(r.value.debugInfo);
+    } else {
+      debugPorCanal.push({ reason: `promise_rejeitada:${r.reason?.message || r.reason}` });
+    }
   }
-  return resultado;
+  return debug ? { list: resultado, debug: debugPorCanal } : resultado;
 }
 
 let _brapiTokenCache = null;
