@@ -366,6 +366,12 @@ async function handleLiveData(res) {
   // numa única chamada (?quote/%5EBVSP,%5EIXIC,%5EDJI) dá HTTP 400
   // "QUOTES_PER_REQUEST_EXCEEDED" no plano gratuito (limite real: 1 ativo
   // por requisição). Corrigido para 3 chamadas separadas, 1 símbolo cada.
+  // Disparada aqui (não esperada ainda) pra rodar EM PARALELO com o bloco
+  // de cotações abaixo, nunca depois — ver comentário completo mais abaixo,
+  // perto de onde o resultado é usado. maxDuration padrão desta rota é 10s
+  // (sem override em vercel.json), então as duas partes não podem somar.
+  const canaisAoVivoPromise = checarCanaisTvAoVivo();
+
   const brapiToken = await getBrapiToken();
   const brapiSymbolUrl = (symbol) =>
     brapiToken
@@ -462,17 +468,16 @@ async function handleLiveData(res) {
     } catch (_) { /* falha ao salvar cache não deve derrubar a resposta */ }
   }
 
-  const youtubeUrl = process.env.YOUTUBE_LIVE_URL || "";
-  const liveConfig = loadLiveConfig();
-  const configTv = (liveConfig?.tv || []).filter(item => item.active !== false);
-  const tvChannels = [
-    ...(youtubeUrl ? [{ label: "TV OVC", url: youtubeUrl, group: "ao vivo", kind: "embed" }] : []),
-    ...(configTv.length ? configTv : [
-      { label: "TV Câmara", url: "https://stream3.camara.gov.br/tv1/manifest.m3u8", group: "institucional — 24h", kind: "hls" },
-      { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCLgti7NuK0RuW9wty-fxPjQ", group: "institucional", kind: "youtube" },
-      { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCSv9d0kQegylHWpP83jWSQg", group: "pública", kind: "youtube" },
-    ])
-  ];
+  // 25/11/2026 — confirmado com teste real: embed/live_stream?channel= só
+  // funciona de verdade quando o canal tem um live event ativo NAQUELE
+  // instante exato; fora disso (comum em canal institucional, que não
+  // transmite 24h) a Roberto aparecia tela preta. Em vez de oferecer um
+  // canal "quebrado" no seletor, o servidor confirma agora mesmo se cada
+  // canal do YouTube está genuinamente ao vivo — só entra na lista se
+  // confirmado. Canais kind:'hls'/'embed' (stream próprio, sempre 24h)
+  // nunca passam por essa checagem, sempre aparecem. Falha na verificação
+  // = não incluído (nunca "chuta" que está ao vivo sem confirmar).
+  const tvChannels = await canaisAoVivoPromise;
 
   return res.status(200).json({
     usd,
@@ -487,7 +492,7 @@ async function handleLiveData(res) {
     impostometro: impostometro(),
     ratePerSec: 114155,
     tv: tvChannels,
-    radio: liveConfig?.radio || null,
+    radio: loadLiveConfig()?.radio || null,
     ts: Date.now()
   });
 }
@@ -608,6 +613,95 @@ async function safeFetch(url) {
     console.error(`[live-data] ${url} falhou: ${e?.message || e}`);
     return null;
   }
+}
+
+// 25/11/2026 — ver comentário em handleLiveData(). fetch de texto puro
+// (não JSON) com timeout curto, pra checar status real de canal do YouTube
+// sem travar a resposta do endpoint caso o YouTube demore/falhe. Timeout
+// agressivo (2.5s) porque essa checagem roda em paralelo com o resto do
+// handler e o endpoint não tem maxDuration customizado (teto padrão de
+// 10s do Vercel Hobby) — nunca pode ser o fator que faz a rota exceder isso.
+async function fetchTextWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" }
+    });
+    clearTimeout(timer);
+    if (!response.ok) return null;
+    return await response.text();
+  } catch (_) {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+function extractYoutubeChannelId(url) {
+  const m = /[?&]channel=([a-zA-Z0-9_-]+)/.exec(url || "");
+  return m ? m[1] : null;
+}
+
+// Confirma com dado real (não suposição) se um canal do YouTube tem um
+// live event ativo agora: segue o redirect /live, extrai o vídeo real
+// (canonical, com fallback pro primeiro videoId do JSON) e verifica
+// isLiveNow na página do vídeo. 4,5s de teto total por canal — generoso
+// o bastante pras 2 chamadas sequenciais, mas nunca trava o endpoint por
+// muito tempo mesmo se o YouTube estiver lento.
+async function isYoutubeChannelLiveNow(channelId) {
+  const liveHtml = await fetchTextWithTimeout(`https://www.youtube.com/channel/${channelId}/live`, 2500);
+  if (!liveHtml) return false;
+  const canonicalMatch = /<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})"/.exec(liveHtml);
+  const jsonMatch = /"videoId":"([a-zA-Z0-9_-]{11})"/.exec(liveHtml);
+  const videoId = (canonicalMatch && canonicalMatch[1]) || (jsonMatch && jsonMatch[1]);
+  if (!videoId) return false;
+  const watchHtml = await fetchTextWithTimeout(`https://www.youtube.com/watch?v=${videoId}`, 2500);
+  if (!watchHtml) return false;
+  return /"isLiveNow":true/.test(watchHtml);
+}
+
+function montarTvChannelsBrutos() {
+  const youtubeUrl = process.env.YOUTUBE_LIVE_URL || "";
+  const liveConfig = loadLiveConfig();
+  const configTv = (liveConfig?.tv || []).filter(item => item.active !== false);
+  return [
+    ...(youtubeUrl ? [{ label: "TV OVC", url: youtubeUrl, group: "ao vivo", kind: "embed" }] : []),
+    ...(configTv.length ? configTv : [
+      { label: "TV Câmara", url: "https://stream3.camara.gov.br/tv1/manifest.m3u8", group: "institucional — 24h", kind: "hls" },
+      { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCLgti7NuK0RuW9wty-fxPjQ", group: "institucional", kind: "youtube" },
+      { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCSv9d0kQegylHWpP83jWSQg", group: "pública", kind: "youtube" },
+    ])
+  ];
+}
+
+let _youtubeLiveStatusCache = {};
+async function checarCanaisTvAoVivo() {
+  const canais = montarTvChannelsBrutos();
+  const agora = Date.now();
+  const resultado = [];
+  const verificacoes = canais.map(async (canal) => {
+    if (canal.kind !== "youtube") return canal; // hls/embed: sempre incluído, sem checagem
+    const channelId = extractYoutubeChannelId(canal.url);
+    if (!channelId) return null; // sem channel id reconhecível, nunca chuta — exclui
+    const cached = _youtubeLiveStatusCache[channelId];
+    if (cached && agora - cached.at < 90 * 1000) {
+      return cached.live ? canal : null;
+    }
+    try {
+      const live = await isYoutubeChannelLiveNow(channelId);
+      _youtubeLiveStatusCache[channelId] = { live, at: agora };
+      return live ? canal : null;
+    } catch (e) {
+      console.error(`[live-data] falha ao checar canal ${channelId}: ${e?.message || e}`);
+      return null; // falha na verificação: nunca inclui sem confirmação real
+    }
+  });
+  const resolvidos = await Promise.allSettled(verificacoes);
+  for (const r of resolvidos) {
+    if (r.status === "fulfilled" && r.value) resultado.push(r.value);
+  }
+  return resultado;
 }
 
 let _brapiTokenCache = null;
