@@ -1,41 +1,9 @@
 name: diag-once (temporario)
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Descobrir channel IDs reais de TVs publicas - rodada 3
-        run: |
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-          check() {
-            local nome="$1"
-            local handle="$2"
-            echo "=== $nome ($handle) ==="
-            html=$(curl -sL -A "$UA" "https://www.youtube.com/$handle" --max-time 15 2>/dev/null || true)
-            canonical=$(echo "$html" | grep -oP '<link rel="canonical" href="[^"]*channel/UC[A-Za-z0-9_-]{22}' 2>/dev/null | head -1 | grep -oP 'UC[A-Za-z0-9_-]{22}' 2>/dev/null || true)
-            ogtitle=$(echo "$html" | grep -oP '<meta property="og:title" content="[^"]*"' 2>/dev/null | head -1 || true)
-            echo "canonical_id: $canonical"
-            echo "og_title: $ogtitle"
-            : > /tmp/live.html
-            live_code=$(curl -sL -A "$UA" "https://www.youtube.com/$handle/live" --max-time 15 -o /tmp/live.html -w "%{http_code}" 2>/dev/null || true)
-            live_ogtitle=$(grep -oP '<meta property="og:title" content="[^"]*"' /tmp/live.html 2>/dev/null | head -1 || true)
-            echo "live http: $live_code | live og_title: $live_ogtitle"
-          }
-          check "Canal da Camara" "@canaldacamara"
-          check "Camara dos Deputados" "@camaradosdeputados"
-          check "CD Leg" "@cdleg"
-          check "EBC Oficial" "@ebcoficial"
-          check "Agencia Brasil" "@agenciabrasil"
-          check "Canal Saude" "@canalsaude"
-          check "STF" "@stf"
-          check "TV Cultura" "@tvcultura"
-          echo "=== reconfirmando os ja achados com og:title ==="
-          check "TV Senado" "@tvsenado"
-          check "TV Brasil" "@tvbrasil"
-          check "TV Justica" "@tvjustica"
-          check "Camara Noticias (ja achado)" "@camaranoticias"
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
