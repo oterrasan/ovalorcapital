@@ -5,45 +5,40 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnostico real dos 5 canais de TV OVC
+      - name: Buscar streams nativos institucionais (nao-YouTube)
         run: |
-          cat > /tmp/diag_tv.sh << 'DIAGEOF'
+          cat > /tmp/diag_native.sh << 'DIAGEOF'
           #!/usr/bin/env bash
           set -uo pipefail
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-          declare -A CHANNELS=(
-            ["tv-senado"]="UCLgti7NuK0RuW9wty-fxPjQ"
-            ["tv-brasil"]="UCSv9d0kQegylHWpP83jWSQg"
-            ["tv-justica"]="UCvZbqQ3yuXJHcjehr9nyXvw"
-            ["tv-cultura"]="UCjOJvvYe6tyEHY21OD33h8A"
-            ["camara-noticias"]="UCeIAn3zmqR7XN-Jb57TWN-g"
-          )
-          for name in "${!CHANNELS[@]}"; do
-            cid="${CHANNELS[$name]}"
-            echo "===== $name ($cid) ====="
-            echo "--- /live redirect ---"
-            live_html=$(curl -sL -A "$UA" --max-time 15 "https://www.youtube.com/channel/${cid}/live" || true)
-            vid=$(echo "$live_html" | grep -oE '"videoId":"[A-Za-z0-9_-]{11}"' | head -1 | sed -E 's/.*"([A-Za-z0-9_-]{11})"/\1/')
-            canonical_vid=$(echo "$live_html" | grep -oE '<link rel="canonical" href="https://www.youtube.com/watch\?v=[A-Za-z0-9_-]{11}"' | head -1 | grep -oE '[A-Za-z0-9_-]{11}"' | tr -d '"')
-            echo "videoId (json): ${vid:-NENHUM}"
-            echo "videoId (canonical): ${canonical_vid:-NENHUM}"
-            real_vid="${canonical_vid:-$vid}"
-            if [ -n "$real_vid" ]; then
-              echo "--- watch page do video real ($real_vid) ---"
-              watch_html=$(curl -sL -A "$UA" --max-time 15 "https://www.youtube.com/watch?v=${real_vid}" || true)
-              echo "playabilityStatus: $(echo "$watch_html" | grep -oE '"playabilityStatus":\{"status":"[A-Z_]+"' | head -1)"
-              echo "isLive: $(echo "$watch_html" | grep -oE '"isLive":(true|false)' | head -1)"
-              echo "isLiveNow: $(echo "$watch_html" | grep -oE '"isLiveNow":(true|false)' | head -1)"
-              echo "playableInEmbed: $(echo "$watch_html" | grep -oE '"playableInEmbed":(true|false)' | head -1)"
-              echo "title: $(echo "$watch_html" | grep -oE '<title>[^<]*</title>' | head -1)"
-            fi
-            echo "--- embed/live_stream?channel=... direto (o que o site usa) ---"
-            embed_html=$(curl -sL -A "$UA" --max-time 15 "https://www.youtube.com/embed/live_stream?channel=${cid}" || true)
-            echo "tamanho resposta: ${#embed_html} bytes"
-            echo "playabilityStatus no embed: $(echo "$embed_html" | grep -oE '"playabilityStatus":\{"status":"[A-Z_]+"' | head -1)"
-            echo "reason no embed: $(echo "$embed_html" | grep -oE '"reason":"[^"]*"' | head -1)"
-            echo "errorScreen presente: $(echo "$embed_html" | grep -c 'errorScreen' || true)"
+
+          check_page () {
+            local nome="$1"
+            local url="$2"
+            echo "===== $nome ====="
+            echo "URL: $url"
+            local html
+            html=$(curl -sL -A "$UA" --max-time 15 "$url" 2>&1 || true)
+            local code
+            code=$(curl -sL -o /dev/null -w "%{http_code}" -A "$UA" --max-time 15 "$url" 2>&1 || true)
+            echo "HTTP: $code  tamanho: ${#html} bytes"
+            echo "m3u8 encontrados:"
+            echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -5
+            echo "iframe src encontrados:"
+            echo "$html" | grep -oE '<iframe[^>]*src="[^"]+"' | head -5
+            echo "video/source src encontrados:"
+            echo "$html" | grep -oE '<(video|source)[^>]*src="[^"]+"' | head -5
+            echo "menções a youtube embed:"
+            echo "$html" | grep -oE 'youtube\.com/embed[^"'"'"' ]*' | sort -u | head -3
             echo
-          done
+          }
+
+          check_page "TV Senado (pagina ao vivo)" "https://www12.senado.leg.br/tv/programas/ao-vivo"
+          check_page "TV Senado (home tv)" "https://www12.senado.leg.br/tv"
+          check_page "TV Camara" "https://www.camara.leg.br/tv/"
+          check_page "TV Justica" "https://www.tvjustica.jus.br"
+          check_page "TV Brasil (EBC)" "https://tvbrasil.ebc.com.br/ao-vivo"
+          check_page "TV Cultura" "https://tvcultura.com.br/tvcultura/ao-vivo"
+          check_page "Radio e TV Camara" "https://www.camara.leg.br/radio/"
           DIAGEOF
-          bash /tmp/diag_tv.sh
+          bash /tmp/diag_native.sh
