@@ -31,25 +31,103 @@
   function radioScheduleHtml(schedule=[]){
     return schedule.map(item => `<li><strong>${item.time}</strong><span>${item.label}</span></li>`).join('');
   }
+  // 25/11/2026 — mesma causa real documentada em ovc-tv-home.js: embed do
+  // YouTube por channel= só funciona com live event ativo naquele instante;
+  // TV Câmara tem stream HLS real 24h (CORS liberado, confirmado em
+  // produção) e vai primeiro na lista — nunca mais tela preta por padrão.
+  function loadHlsJsLib() {
+    return new Promise(resolve => {
+      if (window.Hls) return resolve(window.Hls);
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js';
+      s.onload = () => resolve(window.Hls || null);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+  }
   function mountTV(live){
     const mount = q('[data-tv-page]');
     if (!mount) return;
     const channels = (live?.tv || []).filter(item => item.active !== false);
-    const hero = channels[0] || { label:'OVC TV', url:'', group:'ao vivo', kind:'embed' };
     mount.innerHTML = `
       <section class="ovc-live-grid">
         <div class="ovc-panel ovc-live-hero">
           <div class="ovc-kicker">TV OVC</div>
-          <h1 id="ovc-tv-title">${safe(hero.label,'TV OVC')}</h1>
+          <h1 id="ovc-tv-title">${safe(channels[0]?.label,'TV OVC')}</h1>
           <p>Central de transmissões públicas, institucionais e econômicas selecionadas pelo OVC.</p>
-          <div class="ovc-live-frame">${hero.url ? `<iframe id="ovc-tv-hero" src="${hero.url}" title="${hero.label}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>` : '<div class="ovc-live-fallback">Canal em preparação.</div>'}</div>
+          <div class="ovc-live-frame" id="ovc-tv-frame"></div>
         </div>
         <aside class="ovc-panel ovc-live-side">
           <h3>Canais disponíveis</h3>
-          <div class="ovc-live-list">${channels.map(item => `<a class="ovc-live-link" href="#" data-url="${item.url}" data-label="${item.label.replace(/"/g,'&quot;')}" onclick="(function(el){var f=document.getElementById('ovc-tv-hero');if(f){f.src=el.dataset.url;}var t=document.getElementById('ovc-tv-title');if(t){t.textContent=el.dataset.label;}document.querySelectorAll('.ovc-live-link').forEach(function(a){a.classList.remove('active');});el.classList.add('active');})(this);return false;"><strong>${item.label}</strong><span>${safe(item.group,'ao vivo')}</span></a>`).join('')}</div>
+          <div class="ovc-live-list" id="ovc-tv-list"></div>
           <div class="ovc-banner-slot"><div><strong>Slot premium discreto</strong><span>Patrocínio para plataformas financeiras, dados e parceiros institucionais.</span></div></div>
         </aside>
       </section>`;
+
+    const frameEl = q('#ovc-tv-frame', mount);
+    const listEl = q('#ovc-tv-list', mount);
+    const titleEl = q('#ovc-tv-title', mount);
+    let hlsInstance = null;
+
+    function destroyPlayer() {
+      if (hlsInstance) { try { hlsInstance.destroy(); } catch (e) {} hlsInstance = null; }
+      if (frameEl) frameEl.innerHTML = '';
+    }
+    function mountYoutube(url) {
+      const iframe = document.createElement('iframe');
+      iframe.loading = 'lazy';
+      iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.title = 'OVC TV ao vivo';
+      iframe.src = url;
+      frameEl.appendChild(iframe);
+    }
+    function mountHls(url) {
+      const video = document.createElement('video');
+      video.setAttribute('controls', '');
+      video.setAttribute('autoplay', '');
+      video.setAttribute('playsinline', '');
+      video.muted = true;
+      frameEl.appendChild(video);
+      // Ordem correta (padrao hls.js): tenta MSE primeiro, so cai pro
+      // <video src> nativo quando hls.js detecta que o browser nao tem
+      // MSE (Safari/iOS real). canPlayType() pode responder "maybe" sem
+      // conseguir decodificar de verdade (confirmado em teste real).
+      loadHlsJsLib().then(Hls => {
+        if (Hls && Hls.isSupported()) {
+          hlsInstance = new Hls();
+          hlsInstance.loadSource(url);
+          hlsInstance.attachMedia(video);
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+          return;
+        }
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = url;
+          video.play().catch(() => {});
+          return;
+        }
+        frameEl.innerHTML = '<div class="ovc-live-fallback">Não foi possível carregar este canal agora.</div>';
+      });
+    }
+    function selecionar(idx) {
+      const canal = channels[idx];
+      if (!canal) return;
+      destroyPlayer();
+      if (titleEl) titleEl.textContent = canal.label || 'OVC TV';
+      qa('.ovc-live-link', listEl).forEach(a => a.classList.toggle('active', Number(a.dataset.idx) === idx));
+      if (!canal.url) { frameEl.innerHTML = '<div class="ovc-live-fallback">Canal em preparação.</div>'; return; }
+      if (canal.kind === 'hls') mountHls(canal.url); else mountYoutube(canal.url);
+    }
+
+    listEl.innerHTML = channels.map((item, idx) => `<a class="ovc-live-link" href="#" data-idx="${idx}"><strong>${item.label}</strong><span>${safe(item.group,'ao vivo')}</span></a>`).join('');
+    qa('.ovc-live-link', listEl).forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        selecionar(Number(a.dataset.idx));
+      });
+    });
+    if (channels.length) selecionar(0);
+    else frameEl.innerHTML = '<div class="ovc-live-fallback">Canal em preparação.</div>';
   }
   function mountRadio(live){
     const mount = q('[data-radio-page]');

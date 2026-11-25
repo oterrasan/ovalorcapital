@@ -5,43 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Rodada final - Justica/Brasil/Cultura
-        run: |
-          cat > /tmp/diag_final.sh << 'DIAGEOF'
-          #!/usr/bin/env bash
-          set -uo pipefail
-          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-
-          echo "===== TV Justica — conteudo de /live e /ao-vivo ====="
-          for u in "https://www.tvjustica.jus.br/live" "https://tvjustica.jus.br/ao-vivo"; do
-            echo "--- $u ---"
-            html=$(curl -sL -A "$UA" --max-time 15 "$u" 2>&1 || true)
-            echo "tamanho: ${#html}"
-            echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -3
-            echo "$html" | grep -oiE '<iframe[^>]*src="[^"]+"' | head -3
-          done
-          echo "--- JS bundle da TV Justica (procurando m3u8/stream/api) ---"
-          curl -sL -A "$UA" --max-time 15 "https://www.tvjustica.jus.br/assets/index-63152835.js" -o /tmp/tvj.js 2>&1 || true
-          echo "tamanho JS: $(wc -c < /tmp/tvj.js)"
-          grep -oE 'https?://[^"'"'"'`) ]+\.m3u8[^"'"'"'`) ]*' /tmp/tvj.js | sort -u | head -5 || true
-          grep -oE '"https?://[a-zA-Z0-9._-]+/[a-zA-Z0-9._/-]*(live|stream|hls)[a-zA-Z0-9._/-]*"' /tmp/tvj.js | sort -u | head -10 || true
-          echo
-
-          echo "===== TV Brasil — conteudo real da raiz ====="
-          html=$(curl -sL -A "$UA" --max-time 15 "https://tvbrasil.ebc.com.br/" 2>&1 || true)
-          echo "tamanho: ${#html}"
-          echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -5
-          echo "$html" | grep -oiE '<iframe[^>]*src="[^"]+"' | head -5
-          echo "$html" | grep -oiE 'youtube\.com/embed[^"'"'"' ]*' | sort -u | head -3
-          echo "$html" | grep -oiE '(ao.?vivo|assista)[^<]{0,100}' | head -10
-          echo
-
-          echo "===== TV Cultura — raiz real ====="
-          html=$(curl -sL -A "$UA" --max-time 15 "https://tvcultura.com.br/" 2>&1 || true)
-          echo "HTTP tamanho: ${#html}"
-          echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -5
-          echo "$html" | grep -oiE '<iframe[^>]*src="[^"]+"' | head -5
-          echo "$html" | grep -oiE 'youtube\.com/embed[^"'"'"' ]*' | sort -u | head -3
-          echo "$html" | grep -oiE '(ao.?vivo|assista)[^<]{0,100}' | head -10
-          DIAGEOF
-          bash /tmp/diag_final.sh
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"

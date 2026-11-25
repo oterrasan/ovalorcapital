@@ -1,6 +1,14 @@
 {
   "tv": [
     {
+      "id": "tv-camara",
+      "label": "TV Câmara",
+      "url": "https://stream3.camara.gov.br/tv1/manifest.m3u8",
+      "kind": "hls",
+      "active": true,
+      "group": "institucional — 24h"
+    },
+    {
       "id": "tv-senado",
       "label": "TV Senado",
       "url": "https://www.youtube.com/embed/live_stream?channel=UCLgti7NuK0RuW9wty-fxPjQ",
@@ -31,14 +39,6 @@
       "kind": "youtube",
       "active": true,
       "group": "pública"
-    },
-    {
-      "id": "camara-noticias",
-      "label": "Câmara Notícias",
-      "url": "https://www.youtube.com/embed/live_stream?channel=UCeIAn3zmqR7XN-Jb57TWN-g",
-      "kind": "youtube",
-      "active": true,
-      "group": "institucional"
     }
   ],
   "radio": {
