@@ -55,15 +55,21 @@
     const mount = q('[data-radio-page]');
     if (!mount) return;
     const radio = live?.radio || {};
-    const stream = radio.streamUrl || radio.fallbackUrl || '';
+    const canais = Array.isArray(radio.canais) && radio.canais.length
+      ? radio.canais.filter(c => c && c.url)
+      : (radio.streamUrl || radio.fallbackUrl ? [{ id:'default', label: safe(radio.name,'Rádio OVC'), url: radio.streamUrl || radio.fallbackUrl }] : []);
+    const hero = canais[0] || null;
     mount.innerHTML = `
       <section class="ovc-live-grid">
         <div class="ovc-panel ovc-live-hero">
           <div class="ovc-kicker">Rádio OVC</div>
-          <h1>${safe(radio.name,'Rádio OVC')}</h1>
-          <p>Boletins, programas curtos, cobertura de mercado e faixas especiais em áudio.</p>
-          <audio controls preload="none" style="width:100%"><source src="${stream}"></audio>
+          <h1 id="ovc-radio-title">${hero ? safe(hero.label,'Rádio OVC') : safe(radio.name,'Rádio OVC')}</h1>
+          <p>Transmissões institucionais e públicas, direto no portal, em áudio.</p>
+          ${hero
+            ? `<audio id="ovc-radio-audio" controls preload="none" style="width:100%"><source id="ovc-radio-source" src="${hero.url}"></audio>`
+            : `<div class="ovc-live-fallback">Canal em preparação.</div>`}
           <div class="ovc-note" style="margin-top:12px">Programa atual: <strong>${safe(radio.currentShow,'Ao vivo')}</strong></div>
+          ${canais.length > 1 ? `<div class="ovc-live-list" style="margin-top:12px">${canais.map((c,i) => `<a class="ovc-live-link${i===0?' active':''}" href="#" data-url="${c.url}" data-label="${(c.label||'').replace(/"/g,'&quot;')}" onclick="(function(el){var a=document.getElementById('ovc-radio-audio');var s=document.getElementById('ovc-radio-source');if(a&&s){s.src=el.dataset.url;a.load();a.play().catch(function(){});}var t=document.getElementById('ovc-radio-title');if(t)t.textContent=el.dataset.label;document.querySelectorAll('.ovc-live-link').forEach(function(x){x.classList.remove('active');});el.classList.add('active');})(this);return false;"><strong>${c.label}</strong><span>${safe(c.group,'ao vivo')}</span></a>`).join('')}</div>` : ''}
         </div>
         <aside class="ovc-panel ovc-live-side">
           <h3>Grade</h3>
