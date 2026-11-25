@@ -5,19 +5,17 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspecionar resposta real do youtube (possivel rate limit)
+      - name: Inspecionar body real (sem pipe cortando o curl)
         run: |
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-          echo "--- headers da resposta ---"
-          curl -sL -A "$UA" --max-time 15 -D - -o /tmp/watch.html "https://www.youtube.com/watch?v=YE4oPGJS5z4" | head -20
+          curl -sL -A "$UA" --max-time 15 -o /tmp/watch.html "https://www.youtube.com/watch?v=YE4oPGJS5z4" || echo "CURL_FALHOU"
           echo "--- tamanho do body ---"
-          wc -c /tmp/watch.html
-          echo "--- primeiros 2000 chars do body ---"
-          head -c 2000 /tmp/watch.html
-          echo
-          echo "--- contem 'consent'? ---"
-          grep -c -i "consent" /tmp/watch.html || true
-          echo "--- contem 'ytInitialPlayerResponse'? ---"
+          wc -c /tmp/watch.html || true
+          echo "--- contem ytInitialPlayerResponse? ---"
           grep -c "ytInitialPlayerResponse" /tmp/watch.html || true
-          echo "--- contem captcha/unusual traffic? ---"
-          grep -c -i "unusual traffic\|captcha" /tmp/watch.html || true
+          echo "--- contem consent/unusual traffic/captcha? ---"
+          grep -c -i "consent\|unusual traffic\|captcha" /tmp/watch.html || true
+          echo "--- status real (se achar) ---"
+          grep -oE '"playabilityStatus":\{"status":"[A-Z_]+"' /tmp/watch.html | head -3 || true
+          echo "--- isLiveNow (se achar) ---"
+          grep -oE '"isLiveNow":(true|false)' /tmp/watch.html | head -3 || true
