@@ -9,19 +9,28 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar streams reais de radios publicas
+      - name: Testar streams reais com GET de verdade - rodada 2
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-          check() {
+          checkget() {
             local nome="$1"
             local url="$2"
-            echo "=== $nome ==="
+            echo "=== $nome (GET, 5s, salva bytes) ==="
             echo "url: $url"
-            curl -sI -A "$UA" --max-time 12 "$url" 2>&1 | head -8
+            timeout 6 curl -sN -A "$UA" -D /tmp/headers.txt -o /tmp/stream.bin "$url" || true
+            echo "-- headers --"
+            cat /tmp/headers.txt 2>/dev/null | head -10
+            echo "-- bytes baixados --"
+            ls -la /tmp/stream.bin 2>/dev/null
+            echo "-- primeiros bytes (hex) --"
+            xxd /tmp/stream.bin 2>/dev/null | head -3
+            rm -f /tmp/headers.txt /tmp/stream.bin
             echo "---"
           }
-          check "Radio Senado (fm.mp3)" "http://radioaovivo.senado.leg.br/fm.mp3"
-          check "Radio Senado (canal2)" "http://radioaovivo.senado.gov.br/canal2.mp3"
-          check "Radio Camara (stream3)" "https://stream3.camara.leg.br/radiocamara1t64"
-          echo "=== buscando streams EBC / Radio Nacional / Radio Justica ==="
-          check "EBC radios page" "https://radios.ebc.com.br/"
+          checkget "Radio Senado (fm.mp3)" "http://radioaovivo.senado.leg.br/fm.mp3"
+          checkget "Radio Camara (stream3)" "https://stream3.camara.leg.br/radiocamara1t64"
+          echo "=== extraindo links reais da pagina EBC ==="
+          html=$(curl -sL -A "$UA" --max-time 15 "https://radios.ebc.com.br/" || true)
+          echo "$html" | grep -oP '(https?:)?//[^"'"'"' ]*\.(mp3|m3u8|aac)[^"'"'"' ]*' | sort -u | head -20
+          echo "-- tags audio/source/iframe da pagina --"
+          echo "$html" | grep -oiP '<(audio|source|iframe)[^>]*>' | head -20
