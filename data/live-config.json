@@ -43,9 +43,21 @@
   ],
   "radio": {
     "name": "Rádio OVC",
-    "streamUrl": "",
-    "fallbackUrl": "https://stream.zeno.fm/f3xw1a9r1u8uv",
-    "currentShow": "OVC Ao Vivo",
+    "canais": [
+      {
+        "id": "radio-senado",
+        "label": "Rádio Senado",
+        "url": "http://radioaovivo.senado.leg.br/fm.mp3",
+        "group": "institucional"
+      },
+      {
+        "id": "radio-camara",
+        "label": "Rádio Câmara",
+        "url": "https://stream3.camara.leg.br/radiocamara1t64",
+        "group": "institucional"
+      }
+    ],
+    "currentShow": "Transmissão institucional ao vivo",
     "schedule": [
       {
         "time": "07:00",
