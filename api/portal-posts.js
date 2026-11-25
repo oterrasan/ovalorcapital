@@ -366,11 +366,12 @@ async function handleLiveData(res, debugTv) {
   // numa única chamada (?quote/%5EBVSP,%5EIXIC,%5EDJI) dá HTTP 400
   // "QUOTES_PER_REQUEST_EXCEEDED" no plano gratuito (limite real: 1 ativo
   // por requisição). Corrigido para 3 chamadas separadas, 1 símbolo cada.
-  // Disparada aqui (não esperada ainda) pra rodar EM PARALELO com o bloco
-  // de cotações abaixo, nunca depois — ver comentário completo mais abaixo,
-  // perto de onde o resultado é usado. maxDuration padrão desta rota é 10s
-  // (sem override em vercel.json), então as duas partes não podem somar.
-  const canaisAoVivoPromise = checarCanaisTvAoVivo(debugTv);
+  // 25/11/2026 — checagem de liveness do YouTube (checarCanaisTvAoVivo)
+  // mantida só pra diagnóstico via ?debug=tv — ver comentário completo
+  // mais abaixo, perto de onde tv[] é montado. Só dispara aqui (em paralelo
+  // com o bloco de cotações) quando debugTv=true, pra nunca gastar o
+  // orçamento de 10s desta rota (sem maxDuration customizado) sem motivo.
+  const canaisDebugPromise = debugTv ? checarCanaisTvAoVivo(true) : null;
 
   const brapiToken = await getBrapiToken();
   const brapiSymbolUrl = (symbol) =>
@@ -468,17 +469,26 @@ async function handleLiveData(res, debugTv) {
     } catch (_) { /* falha ao salvar cache não deve derrubar a resposta */ }
   }
 
-  // 25/11/2026 — confirmado com teste real: embed/live_stream?channel= só
-  // funciona de verdade quando o canal tem um live event ativo NAQUELE
-  // instante exato; fora disso (comum em canal institucional, que não
-  // transmite 24h) a Roberto aparecia tela preta. Em vez de oferecer um
-  // canal "quebrado" no seletor, o servidor confirma agora mesmo se cada
-  // canal do YouTube está genuinamente ao vivo — só entra na lista se
-  // confirmado. Canais kind:'hls'/'embed' (stream próprio, sempre 24h)
-  // nunca passam por essa checagem, sempre aparecem. Falha na verificação
-  // = não incluído (nunca "chuta" que está ao vivo sem confirmar).
-  const canaisResolvido = await canaisAoVivoPromise;
-  const tvChannels = debugTv ? canaisResolvido.list : canaisResolvido;
+  // 25/11/2026 (2ª correção, evidência real) — a 1ª versão desta checagem
+  // só mostrava canal do YouTube quando confirmado "ao vivo agora" via
+  // scraping de watch-page. Testado com diagnóstico real (?debug=tv) em
+  // produção: os fetches respondem em 61-103ms (nunca timeout) mas o
+  // YouTube devolve playabilityStatus:"LOGIN_REQUIRED" pro IP da própria
+  // Vercel — bloqueio de bot específico desse IP, não timing, não dá pra
+  // contornar ajustando nada do nosso lado. Testado horas antes via
+  // GitHub Actions (IP diferente): os mesmos canais apareciam genuinamente
+  // ao vivo (isLiveNow:true) — confirma que a checagem É inerentemente
+  // não-confiável a partir do nosso servidor, não que os canais nunca têm
+  // programação. Por isso: tv[] agora SEMPRE lista todos os canais
+  // configurados (Roberto pediu "todos tem transmissao 24horas, mesmo que
+  // nao sejam conteudos ao vivo, sempre tem programacao rodando") — quem
+  // decide o que está ao vivo de fato é o próprio YouTube, no navegador de
+  // quem clica (ver ovc-tv-home.js: canal kind!=hls nunca mais tenta
+  // embutir, só abre o link de verdade no YouTube). A checagem antiga
+  // continua existindo só como diagnóstico via ?debug=tv (tvDebug),
+  // nunca mais filtra o que é mostrado.
+  const tvChannels = montarTvChannelsBrutos();
+  const tvDebugResolvido = canaisDebugPromise ? await canaisDebugPromise : null;
 
   return res.status(200).json({
     usd,
@@ -493,7 +503,7 @@ async function handleLiveData(res, debugTv) {
     impostometro: impostometro(),
     ratePerSec: 114155,
     tv: tvChannels,
-    ...(debugTv ? { tvDebug: canaisResolvido.debug } : {}),
+    ...(debugTv ? { tvDebug: tvDebugResolvido?.debug || [] } : {}),
     radio: loadLiveConfig()?.radio || null,
     ts: Date.now()
   });
