@@ -11,6 +11,17 @@
  * que voce exagere neste layout... plugada em fontes primarias ou fontes
  * confiaveis e monitorando em tempo real, 24horas."
  *
+ * 25/11/2026 — relocado de .rail-left pra .rail-right. Causa real
+ * (confirmada com medição real da página, não suposição): o widget
+ * "Radar Eleitoral" ao qual este se ancorava não existe mais na home —
+ * sem ele, este widget sempre caía no fallback (topo do .rail-left) — e
+ * organizarRailsHome() (ovc-cards.js) sempre move o card da TV OVC pra
+ * dentro do MESMO .rail-left, logo abaixo do topo. Resultado real medido:
+ * Pulso BR ficava sempre empilhado diretamente ACIMA da TV OVC, na mesma
+ * coluna. Roberto: "remova o pulso deste rail... neste rail esquerdo
+ * quero somente as tvs e conteudos ao vivo." Pulso BR continua 100%
+ * funcional, só mudou de coluna — "guardado", nada foi apagado.
+ *
  * Fontes dos vitais (via /api/portal-posts?format=live-data, endpoint já
  * existente estendido nesta sessão — zero cron novo, zero custo novo):
  *   - Selic (meta) e IPCA acum. 12m  → Banco Central do Brasil, API SGS oficial
@@ -290,21 +301,13 @@
   }
 
   function injetar(live, porSetor) {
-    var rail = document.querySelector('.rail-left');
+    var rail = document.querySelector('.rail-right');
     if (!rail) return null;
     var bloco = construirBloco(live, porSetor);
-    var eleitoral = document.getElementById('ovc-radar-eleitoral');
-    if (eleitoral && eleitoral.parentNode === rail) {
-      // Sempre logo ABAIXO do Radar Eleitoral, nunca disputa o topo do rail
-      if (eleitoral.nextSibling) rail.insertBefore(bloco, eleitoral.nextSibling);
-      else rail.appendChild(bloco);
-    } else {
-      // Radar Eleitoral ainda não injetou (corrida de fetch) — entra no topo;
-      // quando o Eleitoral injetar depois, ele mesmo sempre reivindica o
-      // primeiro lugar (rail.firstChild), então o Pulso BR acaba empurrado
-      // para a posição certa de qualquer forma.
-      rail.insertBefore(bloco, rail.firstChild);
-    }
+    // Sempre no fim do rail-right (depois do banner de patrocínio e de
+    // qualquer outro bloco que já esteja lá) — nunca disputa o topo, nunca
+    // entra no .rail-left (onde organizarRailsHome() sempre coloca a TV OVC).
+    rail.appendChild(bloco);
     return bloco;
   }
 
