@@ -1,28 +1,44 @@
 {
   "tv": [
     {
-      "id": "tv-camara",
-      "label": "TV Câmara",
-      "url": "https://www.youtube.com/embed/live_stream?channel=UC2eqh1LrxR1q1H5sL_7v9EA",
-      "kind": "youtube",
-      "active": true,
-      "group": "institucional"
-    },
-    {
       "id": "tv-senado",
       "label": "TV Senado",
-      "url": "https://www.youtube.com/embed/live_stream?channel=UCLgti7nuR8m4BhM-MVt9e4Q",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCLgti7NuK0RuW9wty-fxPjQ",
       "kind": "youtube",
       "active": true,
       "group": "institucional"
     },
     {
-      "id": "bloomberg",
-      "label": "Bloomberg Originals",
-      "url": "https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg",
+      "id": "tv-brasil",
+      "label": "TV Brasil",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCSv9d0kQegylHWpP83jWSQg",
       "kind": "youtube",
       "active": true,
-      "group": "mercado"
+      "group": "pública"
+    },
+    {
+      "id": "tv-justica",
+      "label": "TV Justiça",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCvZbqQ3yuXJHcjehr9nyXvw",
+      "kind": "youtube",
+      "active": true,
+      "group": "institucional"
+    },
+    {
+      "id": "tv-cultura",
+      "label": "TV Cultura",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCjOJvvYe6tyEHY21OD33h8A",
+      "kind": "youtube",
+      "active": true,
+      "group": "pública"
+    },
+    {
+      "id": "camara-noticias",
+      "label": "Câmara Notícias",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCeIAn3zmqR7XN-Jb57TWN-g",
+      "kind": "youtube",
+      "active": true,
+      "group": "institucional"
     }
   ],
   "radio": {
