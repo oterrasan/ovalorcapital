@@ -11551,3 +11551,143 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Confirmar com Roberto, no próximo ciclo real (fora da pausa noturna)**, que a fila de captura está drenando de verdade (sem voltar a acumular) com o teto novo de 10/rodada.
 3. **Monitorar se o teto de 10/rodada ainda é suficiente** à medida que o robô de Instagram começar a gerar volume real (hoje ainda não roda, sem conta cadastrada) — se a fila voltar a crescer, considerar subir de novo ou investigar se algum passo do runner está demorando mais que o esperado.
 4. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 25/11/2026 — ATUALIZAÇÃO COMPLETA DOS ÚLTIMOS 5 DIAS (19-24/11/2026), PREENCHENDO BURACO DE REGISTRO + TRABALHO DESTA SESSÃO
+
+> Roberto pediu explicitamente: "atualize tudo que foi feito, nao deixe nada de fora, nos ultimos 5 dias, tudo no md". Mesmo padrão já usado antes neste arquivo (ver "Sessão 25/09/2026 — ATUALIZAÇÃO DE MEMÓRIA — BURACO DE REGISTRO PREENCHIDO A PARTIR DO GIT") — várias sessões/branches diferentes trabalharam no repo em paralelo nesses 5 dias, e nem todas escreveram sua própria entrada aqui. Reconstruído a partir do histórico real de commits em `origin/main` (não suposição), lendo a mensagem completa de cada um. Um trecho de trabalho sobre "subseções do menu"/"122 subseções" (commits de 19/11 referenciando PR #903) vive só em `origin/work/seo-html-editorial` — **nunca chegou a `main`**, não está em produção, por isso não entra aqui como "feito".
+
+#### 1) PR #905 (19/11, madrugada) — Reel editado manualmente travava preso na pausa noturna 00h-06h BRT
+
+Roberto, furioso, com evidência real: vídeos que ele edita no admin (`reels_set_layout`) ficavam presos em "processing"/"pending" por horas sem avançar — "A PAUSA DO SISTEMA NAO DEVE INTERFERIR ACOES MANUAIS COMO ESTAS, EU AVISEI VOCE".
+
+**Causa raiz confirmada com dado real** (consulta direta ao Supabase, não suposição): `handleReelsRenderJob` (`api/manage.js`) tem 2 gates de pausa — `sistemaGeralLigado()` e `pausaNoturnaAtiva()` (janela 00h-06h BRT) — avaliados ANTES da lógica de prioridade mais abaixo. Qualquer chamada, inclusive a "rodada prioridade" disparada na hora por `handleReelsSetLayout`, era bloqueada igual a uma varredura automática de rotina. Confirmado: 5 posts reais com `metrics.instagram_reel_template.priority_at` setado por edição manual de Roberto, `status` ainda `"pending"`, `processing_at` nunca preenchido, alguns desde 02:14 BRT atravessando a pausa inteira sem avanço.
+
+**Fix:** `body?.prioridade === true` (`soPrioridadeGate`) checado ANTES dos 2 gates, abrindo exceção SÓ pra `pausaNoturnaAtiva()` — uma rodada de prioridade nunca espera até 06h. `sistemaGeralLigado()` (Interruptor Geral) continua absoluto, sem exceção nenhuma — é o botão que Roberto desenhou de propósito pra parar "TODO O SISTEMA, TUDO!" quando ele mesmo decide (14/11/2026).
+
+Verificado: `node --check`, `api/` com 10 arquivos.
+
+#### 2) PR #906 (19/11, madrugada) — robô de TikTok classificava conteúdo pela CONTA, nunca pelo assunto real do vídeo
+
+Roberto, com prints reais: vídeos capturados pelo robô de TikTok saíam em categorias completamente erradas — ele já tinha corrigido "VARIAS" manualmente.
+
+**Causa raiz confirmada com dado real:** `handleLinkManual()` (`api/run_portal.js`) nunca classificava pelo conteúdo — `content.categoria` era sempre sobrescrito pela categoria repassada na criação do job, que pro robô de TikTok vem de `TIKTOK_ROBO_CONTAS` (mapa ESTÁTICO por conta — ex.: `@reinaldogottino` sempre "esportes", sem checar o vídeo individual). Confirmado com 2 casos reais publicados com `user_tags:["esportes"]` que não tinham relação nenhuma com esporte: "O impacto e os riscos reais da dependência tecnológica global" e "Capivara é resgatada e tem fitilho removido da barriga em Santo André".
+
+**Fix:**
+- `core/ai_portal.js` (`BRASILON_KERNEL`): adiciona `CATEGORIA` ao formato de saída — a IA já lê o texto real do vídeo pra reescrever, agora também classifica o assunto real a partir desse mesmo texto.
+- `api/run_portal.js` (`handleLinkManual`): conteúdo descoberto pelo robô (`jobVideoOnly=true`, nenhuma escolha humana envolvida) usa a classificação real da IA (`remapCat`+`CATS.has`), só caindo pro palpite da conta se a IA não devolver nada válido. Submissão MANUAL de Roberto continua 100% respeitada, nunca "corrigida" por baixo dele.
+- 2º bug real corrigido no mesmo insert: `user_tags` usava a variável `categoria` original (palpite), não `content.categoria` (valor final já corrigido) — sem isso a matéria ficaria arquivada na categoria errada mesmo com subcategoria certa (`user_tags` é o campo real que decide onde a matéria aparece no site).
+
+Testado isolado (Node, sem rede): `parse()`+`remapCat()`+`CATS.has()` reproduzidos fora do módulo, 7 casos (incluindo os 2 reais + rótulo legado + sem `CATEGORIA` + categoria inválida) — todos resolvem certo. `api/` com 10 arquivos.
+
+#### 3) PR #907 (19/11, madrugada) — interruptor dedicado pra pausar a captura de vídeo dos Reels
+
+Roberto: *"preciso que voce crie um botao no admin que interrompa a captura de videos para reels [...] quero que ela seja igual a automacao do instagram, que tem um interruptor pra ligar e desligar."*
+
+Investigado: já existiam 2 controles no admin, mas nenhum parava de fato a captura/renderização — "🎞️ Reels" (`REELS_AUTOMATION_ENABLED`) só controla a PUBLICAÇÃO de um Reel já pronto, nunca o download+ffmpeg+upload de prévia (`handleReelsRenderJob` nunca lia esse flag); "🔴 Interruptor Geral" (`SISTEMA_LIGADO`) para o sistema inteiro, amplo demais pro pedido.
+
+**Fix:** nova chave `REELS_CAPTURA_ENABLED` + helper `reelsCapturaLigada()`, checada como gate **absoluto** (sem exceção de prioridade — diferente da pausa noturna) dentro de `handleReelsRenderJob`. Admin ganhou card "📥 Captura de Reels" (mesmo padrão visual/1-clique de "📷 Feed"/"🎞️ Reels"). Default fail-OPEN de propósito (diferente do fail-CLOSED do Interruptor Geral) — chave nova/opcional, uma falha transitória de leitura não deve travar a captura sozinha.
+
+Verificado: `node --check`, admin recompilado inteiro com `@babel/core` (JSX OK), `api/` com 10 arquivos, `public/index.html` intocado.
+
+> **Nota:** é exatamente o gate `REELS_CAPTURA_ENABLED` criado aqui que, horas depois, se revelou absoluto demais e precisou do bypass de prioridade do PR #909 (item acima, documentado fora de ordem cronológica porque é mais recente neste arquivo — #909 é 20/11, #907 é 19/11, mas resolve exatamente este gate).
+
+#### 4) PR #913 (20/11, mesma madrugada do robô de Instagram) — link manual não trava mais na pausa noturna 00h-06h BRT
+
+`handleLinkJobsPendentes` bloqueava TODO pedido de captura durante a pausa (00h-06h BRT), inclusive link colado manualmente por Roberto no admin ("Novo link"/"Em lote") — mesmo `handleLinkManual` já documentando que a submissão manual funciona fora da janela de propósito. Confirmado com caso real: 2 links de TikTok colados às 04h50 BRT ficaram presos em "Na fila" até 06h00.
+
+**Fix:** pedidos criados por `_filaAutomaticaSocial` (submissão manual) ganham `origem:"manual"`; durante a pausa, `handleLinkJobsPendentes` só bloqueia descoberta automática dos robôs (TikTok/Instagram) — link manual passa direto, a qualquer hora, como já era a intenção original.
+
+#### 5) PRs #917/#918 (22/11) — janela de geração automática estreitada pra 06h-17h BRT
+
+Roberto, com o sistema publicando conteúdo real às 18h51 BRT: *"o sistema só opera e só gera conteúdo agora... das 6 da manhã às 17 da tarde. E acabou. Fora isso, só se eu fizer manualmente."*
+
+`pausaNoturnaAtiva()` só bloqueava 00h-06h BRT (gate de 18/11/2026) — deixava o pipeline gerando o dia inteiro até meia-noite. **Fix (#917):** estreitado pra bloquear fora de 06h-17h BRT, em 2 commits isolados (Regra Zero-F): o gate em `api/run_portal.js`, e os 7 crons reais de geração de conteúdo em `vercel.json` (`0-2,9-23` UTC → `9-19` UTC = 06h-17h BRT). Crons de Instagram/manutenção (fila prioritária, aceite de collab, dispatch de Reels, refresh token, limpeza de orçamento Gemini) não foram tocados — janelas separadas, já ajustadas antes. A exceção de ação manual (`origem:"manual"`, `link_manual`) ficou intacta — só a geração automática fica restrita à nova janela.
+
+**#918:** puramente cosmético — a lógica já estava correta desde o #917; só o texto de diagnóstico devolvido na resposta JSON (`"janela":"06h-00h BRT"`) ainda citava a janela antiga, nas 8 ocorrências.
+
+**Verificado em produção, ao vivo**, nesta mesma sessão: chamada real às 18h54-18h56 BRT confirmou bloqueio correto (`{"status":"pausado_madrugada","janela":"06h-17h BRT"}`), e o `vercel.json` real confirmado com `9-19 * * *` nos 7 crons.
+
+#### 6) PR #920 (23/11) — link de compartilhamento quebrado (`/og?id=`, sem `www`)
+
+Roberto, com prints reais: link compartilhado via WhatsApp/Instagram ("Compartilhar esta matéria") abria JSON cru na tela em vez da matéria — *"TEM MERDA NO PORTAL... é por isso que meu alcance é um lixo"*.
+
+**Causa raiz real, 2 bugs na mesma função** (`renderShare()`, `internal-page-v2.js`):
+1. Todo botão de compartilhamento (WhatsApp/Facebook/LinkedIn/Telegram/X) usava `https://ovalorcapital.com.br/og?id=XXXX` — rota que só existe pra servir JSON cru (`handleOne()` em `api/portal-posts.js`, `format=og`), nunca uma página de verdade.
+2. Mesmo o link completo (usado por "Copiar link"/e-mail) estava sem `www` — inconsistente com o canonical real do resto do portal.
+
+**Fix:**
+- `internal-page-v2.js`: `renderShare()` agora usa sempre a URL real do artigo, com `www`, em todos os canais — nunca mais gera link pra `/og?id=`. Cache-bust `v6→v7` nas 51 páginas que carregam o script.
+- `api/portal-posts.js`: `handleOne()`, quando vem explicitamente via `format=og`, agora redireciona (301) pra URL real do artigo em vez de devolver JSON — corrige também qualquer link JÁ compartilhado antes deste fix (WhatsApp/Instagram antigos, sem precisar reenviar nada). A chamada interna de JSON normal (sem `format=og`, usada por `internal-page*.js`) continua intacta.
+
+#### 7) PR #921 (23/11) — Aline Penedo Garcia cadastrada como colunista
+
+- `ALLOWED_COLUNISTAS_SLUGS`: adiciona `aline-penedo-garcia`.
+- `COLUNISTA_INSTAGRAM`: adiciona `@alinepenedogarcia` (confirmado por print do perfil real, 122 mil seguidores, verificado).
+
+#### 8) PR #923 (24/11) — colab automática do Instagram pra Taísa da Fonseca
+
+Roberto reclamou com força que já tinha passado o Instagram dela antes e que eu "falei merda" dizendo que não tinha — investigando a fundo (grep em todo o repo, `git log --all -S` na história completa, consultas diretas às tabelas `colunistas`/`ig_accounts`), confirmado honestamente que não havia NADA estruturado (nem código, nem banco) com o handle dela. Roberto apontou onde estava: *"FORA QUE EM TODAS AS MATERIAS DELA, TEM LÁ O @ DELA"* — achado na hora, na assinatura de toda coluna publicada dela ("Sociedade Fashionista por @taisadafonseca"), confirmado também por link clicável real (`href="https://www.instagram.com/taisadafonseca"`) num dos posts.
+
+**Fix:** `"taisa-da-fonseca": "taisadafonseca"` adicionado a `COLUNISTA_INSTAGRAM` (`core/instagram.js`). Sem conta conectada em `ig_accounts` (sem token) — igual Flávio Breghiroli, só recebe a marcação de colaboradora, aceite manual dela mesma no próprio Instagram, nunca aceite automático (Roberto foi explícito: *"O INSTAGRAM DELA SÓ RECEBE COLAB... NAO TEM ACEITE AUTOMATICO"*).
+
+Verificado: `node --check`, resolvido conflito real de merge no mesmo mapa (outra sessão tinha adicionado `aline-penedo-garcia` em paralelo — os dois ficaram, nada de nenhuma das duas fontes foi perdido), teste isolado da lógica confirmando o handle certo. Deploy confirmado com sucesso.
+
+#### 9) PR #924 (24/11) — toda coluna leva colab pro colunista + @oterrasan + @obrasilon, com aceite e curtida automáticos pros 2 últimos
+
+Roberto: *"todas as colunas, devem ir para seus colunistas para que aceitem as colabs, eu devo recber no @oterrasan com aceite e curtida automatica e o @brasilon deve aceitar e curtir automaticamente tambem."*
+
+`collaboratorForColunista(post)` (`core/instagram.js`) deixou de devolver 1 único nome e passou a devolver um **array** de até 3 handles — colunista + `oterrasan` + `obrasilon` (deduplicados). Os 2 últimos já têm conta real conectada em `ig_accounts` (token válido), e a tag enviada continua sendo `"feed_coluna"` — que já bypassa `NEVER_AUTO_ACCEPT`/`REEL_ONLY_AUTO_ACCEPT` em `acceptCollabsForMedia` — então os dois aceitam e curtem sozinhos, sem precisar de mecanismo novo nenhum. Colunista sem conta conectada (Flávio, Taísa, Pizzolatto) continua só recebendo a marcação, aceite manual — zero mudança pra eles.
+
+`collaboratorsFor()` ganhou suporte a `opts.collaborators` (array), com prioridade sobre o `opts.collaborator` único de sempre (assunto/feedPost) — retrocompatível. Os 2 pontos reais de publicação de feed do OVC (`handleIgPublish` manual, `_publicarPostFeedAutomatico` da automação/fila prioritária) passaram a enviar o array quando é coluna.
+
+**Incidente de processo evitado nesta mesma tarefa:** a 1ª tentativa de editar `api/manage.js` via script Python em texto puro converteu o arquivo inteiro de CRLF pra LF (9.118 linhas de diff num fix de 2 linhas) — revertido na hora e refeito com o `Edit` tool, que preserva a convenção de quebra de linha do arquivo (mesma classe de bug já documentada antes neste projeto).
+
+Testado isolado (sem rede): `roberto-terrasan → [oterrasan, obrasilon]`; `taisa-da-fonseca → [taisadafonseca, oterrasan, obrasilon]`; `flavio-breghiroli → [com.flavio.breghiroli.garcia, oterrasan, obrasilon]`; `prof-marcos-pizzolatto → [oterrasan, obrasilon]` (sem handle confirmado, sem regressão); post sem `subcategoria_slug → []` (assunto/feedPost intocado). Reels não foram tocados — já tagueavam `obrasilon` com aceite automático desde 30/09/2026/12/11/2026.
+
+Deploy confirmado com sucesso (`deploy.yml`).
+
+#### 10) PR #925 (24/11) — página de colunista individual usava o logo genérico como `og:image`, nunca a foto real
+
+Roberto mandou print real do WhatsApp: Taísa compartilhando o link da própria página de colunista (`/colunistas/taisa-da-fonseca/`), e a prévia mostrava o logo genérico do OVC — nunca a foto dela.
+
+**Causa raiz confirmada com dado real** (query direta em produção, não suposição): `api/category.js` hardcodeava `og:image`/`twitter:image` em `OG_DEFAULT` pra **toda** página de categoria, inclusive a de colunista individual. `config.COLUNISTAS_PHOTOS` está vazio em produção (`{}`) — não é a fonte de verdade. A foto real vive no Supabase Storage, confirmado listando o bucket: `posts-images/colunistas/taisa-da-fonseca.webp`, `roberto-terrasan.webp`, `prof-marcos-pizzolatto.webp` — arquivos reais, `mimetype: image/webp`.
+
+**Fix:** nova `getColunistaFotoUrl(slug)` em `api/category.js` — busca o arquivo real no Storage (`.list("colunistas", {search: slug})`), usada só quando a página é de UM colunista específico (`cat==="colunistas" && sectionLabel`); a listagem geral `/colunistas/` continua com `OG_DEFAULT`. Sem foto encontrada, cai pro mesmo `OG_DEFAULT` de sempre, nunca quebra.
+
+**Verificado AO VIVO em produção, pós-deploy** (não só "deveria funcionar"):
+```
+curl https://www.ovalorcapital.com.br/colunistas/taisa-da-fonseca/
+og:image: https://.../posts-images/colunistas/taisa-da-fonseca.webp   ← foto REAL, confirmado
+```
+**Descoberta lateral, não é bug meu:** `/colunistas/` (a listagem geral, sem seção) é servida por um arquivo ESTÁTICO (`public/colunistas/index.html`, via `{"handle":"filesystem"}` do `vercel.json`, que nunca chega em `api/category.js`) — e esse arquivo estático não tem NENHUMA tag `og:`/`twitter:` (condição pré-existente, separada, fora do escopo do que foi reportado; não tocada).
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (confirmado, inalterado em toda a janela 19-24/11)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA ATUALIZAÇÃO (19-24/11/2026, consolidado)
+
+| Sistema | Status |
+|---|---|
+| **Reel editado manualmente não espera mais a pausa noturna pra ser capturado** (bypass de prioridade) | ✅ EM PRODUÇÃO (PR #909) |
+| **Robô de TikTok classifica pelo assunto real do vídeo, não mais pela conta fixa** | ✅ EM PRODUÇÃO (PR #906) |
+| **Interruptor dedicado "📥 Captura de Reels"** (`REELS_CAPTURA_ENABLED`) | ✅ EM PRODUÇÃO (PR #907) |
+| **Link manual nunca mais trava na pausa noturna** (só descoberta automática é bloqueada) | ✅ EM PRODUÇÃO (PR #913) |
+| **Janela de geração automática estreitada pra 06h-17h BRT** (código + 7 crons) | ✅ EM PRODUÇÃO, verificado ao vivo (PRs #917/#918) |
+| **Link de compartilhamento corrigido — nunca mais `/og?id=` cru, sempre com `www`** | ✅ EM PRODUÇÃO (PR #920) |
+| **Aline Penedo Garcia cadastrada como colunista** | ✅ EM PRODUÇÃO (PR #921) |
+| **Colab automática da Taísa da Fonseca no Instagram** (`@taisadafonseca`, só marcação, aceite manual) | ✅ EM PRODUÇÃO, verificado (PR #923) |
+| **Toda coluna leva colab pro colunista + @oterrasan + @obrasilon** (2 últimos com aceite/curtida automáticos) | ✅ EM PRODUÇÃO, verificado (PR #924) |
+| **Página de colunista individual usa a foto real como `og:image`** | ✅ EM PRODUÇÃO, verificado ao vivo (PR #925) |
+
+#### 🔧 Pendências reais para a próxima sessão
+
+1. **Cadastrar a conta de captura do Instagram** (Admin → Reescrita por Link → Conta de captura) — ainda pendente desde a sessão de 20/11, sem isso o robô de descoberta de vídeo do Instagram não roda. Ação exclusiva de Roberto, conta descartável/dedicada.
+2. **Confirmar com Roberto que a fila de captura/vídeo está estável** (drenando sem acumular, respeitando a janela 06h-17h BRT e o interruptor de captura).
+3. **`/colunistas/` (listagem geral) sem nenhuma tag `og:`/`twitter:`** — arquivo estático `public/colunistas/index.html`, achado nesta sessão, não corrigido (fora do escopo do que foi reportado — só mexer se Roberto pedir).
+4. Demais pendências de sessões anteriores (ver entradas anteriores no arquivo) seguem válidas — nenhuma foi revisitada nesta atualização, que foi só de preenchimento de registro.
