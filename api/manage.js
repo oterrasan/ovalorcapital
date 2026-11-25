@@ -813,7 +813,12 @@ function fitInstagramCaption(body, signature, hashtags, ctaBlock, location, hook
   // sendo atraentes ao publico". O hook (manchete formatada como gancho de
   // abertura, ver buildCaptionHook) nunca pode ser cortado — só o corpo
   // (bodyText) é truncado quando a legenda passa de 2200 chars.
-  const compose = (bodyText) => [hook, locationBlock, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  // 25/11/2026 — Roberto: o CTA ("acesse o portal") precisa vir
+  // EXATAMENTE depois do ponto onde o corpo é cortado, nunca depois da
+  // assinatura/hashtags — senão o leitor vê o texto parar no meio da
+  // frase e só várias linhas depois (já passando por assinatura e
+  // hashtags) descobre que tem mais no portal, o que não faz sentido.
+  const compose = (bodyText) => [hook, locationBlock, bodyText, ctaBlock, signature, hashtagBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;

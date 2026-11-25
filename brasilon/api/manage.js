@@ -572,7 +572,10 @@ function buildInstagramHashtags(post, extracted, category) {
 function fitInstagramCaption(body, signature, hashtags, ctaBlock, hook) {
   const hashtagBlock = hashtags.join(" ");
   // hook nunca é cortado — só bodyText é truncado quando passa de 2200 chars.
-  const compose = (bodyText) => [hook, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  // 25/11/2026 — Roberto: o CTA precisa vir EXATAMENTE depois do ponto
+  // onde o corpo é cortado, nunca depois da assinatura/hashtags (mesmo
+  // fix aplicado em api/manage.js, raiz — ver comentário lá).
+  const compose = (bodyText) => [hook, bodyText, ctaBlock, signature, hashtagBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;
