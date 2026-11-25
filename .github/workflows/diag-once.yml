@@ -5,55 +5,43 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Validar HLS da Camara + buscar HLS de Justica/Brasil/Cultura/Senado
+      - name: Rodada final - Justica/Brasil/Cultura
         run: |
-          cat > /tmp/diag_hls.sh << 'DIAGEOF'
+          cat > /tmp/diag_final.sh << 'DIAGEOF'
           #!/usr/bin/env bash
           set -uo pipefail
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
 
-          echo "===== VALIDACAO REAL: manifest.m3u8 da TV Camara ====="
-          M3U8="https://stream3.camara.gov.br/tv1/manifest.m3u8"
-          echo "--- headers (GET real) ---"
-          curl -sL -A "$UA" --max-time 12 -D - -o /tmp/manifest.m3u8 "$M3U8" | grep -iE '^(HTTP|content-type|access-control|cache-control)'
-          echo "--- conteudo do manifest ---"
-          cat /tmp/manifest.m3u8
-          echo
-
-          echo "===== TV Justica — procurando config/stream nos assets ====="
-          HTML=$(curl -sL -A "$UA" --max-time 15 "https://www.tvjustica.jus.br" || true)
-          echo "$HTML"
-          echo "--- scripts referenciados ---"
-          echo "$HTML" | grep -oE 'src="[^"]+\.js[^"]*"' | head -10
-          echo "--- tentando endpoints comuns ---"
-          for u in "https://www.tvjustica.jus.br/api/live" "https://www.tvjustica.jus.br/live" "https://stream.tvjustica.jus.br/live/manifest.m3u8" "https://tvjustica.jus.br/ao-vivo"; do
-            code=$(curl -sL -o /dev/null -w "%{http_code}" -A "$UA" --max-time 10 "$u" 2>&1 || true)
-            echo "  $u -> HTTP $code"
-          done
-          echo
-
-          echo "===== TV Brasil (EBC) — tentando URLs alternativas ====="
-          for u in "https://tvbrasil.ebc.com.br/" "https://tvbrasil.ebc.com.br/aovivo" "https://tvbrasilgov.ebc.com.br/" "https://agenciabrasil.ebc.com.br/tv-brasil"; do
+          echo "===== TV Justica — conteudo de /live e /ao-vivo ====="
+          for u in "https://www.tvjustica.jus.br/live" "https://tvjustica.jus.br/ao-vivo"; do
             echo "--- $u ---"
-            html=$(curl -sL -A "$UA" --max-time 12 "$u" 2>&1 || true)
-            code=$(curl -sL -o /dev/null -w "%{http_code}" -A "$UA" --max-time 10 "$u" 2>&1 || true)
-            echo "HTTP $code tamanho ${#html}"
+            html=$(curl -sL -A "$UA" --max-time 15 "$u" 2>&1 || true)
+            echo "tamanho: ${#html}"
             echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -3
             echo "$html" | grep -oiE '<iframe[^>]*src="[^"]+"' | head -3
           done
+          echo "--- JS bundle da TV Justica (procurando m3u8/stream/api) ---"
+          curl -sL -A "$UA" --max-time 15 "https://www.tvjustica.jus.br/assets/index-63152835.js" -o /tmp/tvj.js 2>&1 || true
+          echo "tamanho JS: $(wc -c < /tmp/tvj.js)"
+          grep -oE 'https?://[^"'"'"'`) ]+\.m3u8[^"'"'"'`) ]*' /tmp/tvj.js | sort -u | head -5 || true
+          grep -oE '"https?://[a-zA-Z0-9._-]+/[a-zA-Z0-9._/-]*(live|stream|hls)[a-zA-Z0-9._/-]*"' /tmp/tvj.js | sort -u | head -10 || true
           echo
 
-          echo "===== TV Cultura — tentando resolver host ====="
-          getent hosts tvcultura.com.br || true
-          curl -sL -v -A "$UA" --max-time 10 "https://tvcultura.com.br/" 2>&1 | head -30
-          echo "--- tentando www ---"
-          code=$(curl -sL -o /dev/null -w "%{http_code}" -A "$UA" --max-time 12 "https://www.tvcultura.com.br/tvcultura/ao-vivo" 2>&1 || true)
-          echo "www.tvcultura.com.br/tvcultura/ao-vivo -> HTTP $code"
+          echo "===== TV Brasil — conteudo real da raiz ====="
+          html=$(curl -sL -A "$UA" --max-time 15 "https://tvbrasil.ebc.com.br/" 2>&1 || true)
+          echo "tamanho: ${#html}"
+          echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -5
+          echo "$html" | grep -oiE '<iframe[^>]*src="[^"]+"' | head -5
+          echo "$html" | grep -oiE 'youtube\.com/embed[^"'"'"' ]*' | sort -u | head -3
+          echo "$html" | grep -oiE '(ao.?vivo|assista)[^<]{0,100}' | head -10
           echo
 
-          echo "===== TV Senado — verificar se o video embutido muda e se tem canal fixo ====="
-          HTML2=$(curl -sL -A "$UA" --max-time 15 "https://www12.senado.leg.br/tv/programas/ao-vivo" || true)
-          echo "$HTML2" | grep -oE '(data-live-id|data-channel-id|data-video-id)="[^"]*"' | head -5
-          echo "$HTML2" | grep -oiE 'ao.?vivo[^<]{0,80}' | head -5
+          echo "===== TV Cultura — raiz real ====="
+          html=$(curl -sL -A "$UA" --max-time 15 "https://tvcultura.com.br/" 2>&1 || true)
+          echo "HTTP tamanho: ${#html}"
+          echo "$html" | grep -oE 'https?://[^"'"'"' ]+\.m3u8[^"'"'"' ]*' | sort -u | head -5
+          echo "$html" | grep -oiE '<iframe[^>]*src="[^"]+"' | head -5
+          echo "$html" | grep -oiE 'youtube\.com/embed[^"'"'"' ]*' | sort -u | head -3
+          echo "$html" | grep -oiE '(ao.?vivo|assista)[^<]{0,100}' | head -10
           DIAGEOF
-          bash /tmp/diag_hls.sh
+          bash /tmp/diag_final.sh
