@@ -4,24 +4,16 @@
   // vivo. Independente de home.js e de internal-page-v2.js — se este
   // script falhar, nada mais no portal quebra.
   //
-  // 25/11/2026 (reescrita) — Roberto pediu: (1) mostrar sempre os 5
-  // canais, tratando todos como tendo programação 24h ("mesmo que nao
-  // sejam conteudos ao vivo, sempre tem programacao rodando"); (2) uma
-  // fileira de cards (um por canal, empilhados), não mais um frame único
-  // com botões de seleção.
+  // 26/11/2026 (reescrita 2) — Roberto rejeitou com força a versão anterior
+  // (link pra abrir o canal no YouTube em vez de tocar no portal): "NAO
+  // QUERO QUE CLICANDO O LINK DIRECIONE PRA PORRA DE YOUTUBE... ISSO DEVE
+  // ABRIR TUDO E RODAR OS PLAYERS NO PORTAL." Pedido explícito e literal:
+  // TODOS os canais embutidos e tocando ao mesmo tempo, com som desligado
+  // por padrão, um abaixo do outro — o usuário ativa o som do que quiser
+  // clicando no próprio player (controle nativo de mudo do <video>/do
+  // embed do YouTube, sem nenhum JS extra necessário pra isso).
   //
-  // Causa real confirmada (não suposição, teste real via ?debug=tv em
-  // produção) de por que embutir canal do YouTube aqui sempre falhava: o
-  // YouTube bloqueia a leitura da página pro IP da própria Vercel
-  // (playabilityStatus:"LOGIN_REQUIRED"), então nunca dá pra confirmar
-  // nem embutir um player real pra esses canais a partir do nosso
-  // servidor — isso não é timing, é decisão do YouTube sobre esse IP
-  // específico. Por isso: canal kind:"hls" (stream próprio, sempre
-  // confiável — TV Câmara) continua tocando embutido de verdade aqui.
-  // Canal kind:"youtube" nunca mais tenta embutir — o card sempre existe
-  // e sempre mostra um "▶ Assistir no YouTube", que abre o canal de
-  // verdade no navegador de quem clica (lá a sessão real do YouTube
-  // decide o que mostrar — ao vivo se estiver, vídeo recente se não).
+  // Nenhum canal mais abre em nova aba nem linka pra fora do portal.
   var HLS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js";
   var hlsLibPromise = null;
 
@@ -60,30 +52,12 @@
       ".tv-ch-media{position:relative;width:100%;aspect-ratio:16/9;background:#0b0f1a;",
       "  display:flex;align-items:center;justify-content:center;overflow:hidden;}",
       ".tv-ch-media video,.tv-ch-media iframe{width:100%;height:100%;display:block;border:0;}",
-      ".tv-ch-media-yt{background:linear-gradient(145deg,#111827,#1e293b);}",
-      ".tv-ch-yt-icon{font-size:34px;opacity:.9;}",
-      ".tv-ch-cta{display:block;width:calc(100% - 24px);margin:10px 12px 12px;",
-      "  text-align:center;padding:10px 0;border-radius:9px;font-size:12.5px;",
-      "  font-weight:800;color:#fff;text-decoration:none;transition:filter .15s;}",
-      ".tv-ch-cta-live{background:#b91c1c;}",
-      ".tv-ch-cta-live:hover{filter:brightness(1.08);}",
-      ".tv-ch-cta-yt{background:#0f172a;}",
-      ".tv-ch-cta-yt:hover{filter:brightness(1.15);}",
       ".tv-ch-fallback{font-size:11px;color:#94a3b8;padding:10px 12px;text-align:center;}"
     ].join("");
     var tag = document.createElement("style");
     tag.id = "ovc-tv-home-css";
     tag.textContent = css;
     document.head.appendChild(tag);
-  }
-
-  function extractYoutubeChannelId(url) {
-    var m = /[?&]channel=([a-zA-Z0-9_-]+)/.exec(url || "");
-    return m ? m[1] : null;
-  }
-  function youtubeWatchUrl(canal) {
-    var id = extractYoutubeChannelId(canal.url);
-    return id ? ("https://www.youtube.com/channel/" + id + "/live") : canal.url;
   }
 
   function montarHls(mediaEl, url) {
@@ -118,6 +92,20 @@
     });
   }
 
+  function montarYoutube(mediaEl, url) {
+    var iframe = document.createElement("iframe");
+    iframe.setAttribute("loading", "lazy");
+    iframe.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
+    iframe.setAttribute("allowfullscreen", "");
+    iframe.setAttribute("title", "Canal ao vivo OVC TV");
+    // autoplay=1&mute=1: toca direto, mudo — navegadores sempre permitem
+    // autoplay quando o som começa desligado. playsinline evita
+    // tela cheia forçada em celular. O próprio player do YouTube mostra o
+    // ícone de som — o usuário ativa clicando nele, sem JS extra nosso.
+    iframe.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "autoplay=1&mute=1&playsinline=1";
+    mediaEl.appendChild(iframe);
+  }
+
   function construirCard(canal) {
     var card = document.createElement("div");
     card.className = "tv-ch-card";
@@ -138,27 +126,13 @@
     card.appendChild(title);
 
     var media = document.createElement("div");
-    media.className = "tv-ch-media" + (isHls ? "" : " tv-ch-media-yt");
+    media.className = "tv-ch-media";
     if (isHls) {
       montarHls(media, canal.url);
     } else {
-      media.innerHTML = '<span class="tv-ch-yt-icon">▶</span>';
+      montarYoutube(media, canal.url);
     }
     card.appendChild(media);
-
-    var cta = document.createElement("a");
-    if (isHls) {
-      cta.className = "tv-ch-cta tv-ch-cta-live";
-      cta.href = "/tv-ovc/";
-      cta.textContent = "Tela cheia no portal";
-    } else {
-      cta.className = "tv-ch-cta tv-ch-cta-yt";
-      cta.href = youtubeWatchUrl(canal);
-      cta.target = "_blank";
-      cta.rel = "noopener";
-      cta.textContent = "▶ Assistir no YouTube";
-    }
-    card.appendChild(cta);
 
     return card;
   }
