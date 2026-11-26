@@ -14,6 +14,19 @@
   // embed do YouTube, sem nenhum JS extra necessário pra isso).
   //
   // Nenhum canal mais abre em nova aba nem linka pra fora do portal.
+  //
+  // 26/11/2026 (reescrita 3) — causa raiz REAL confirmada em produção com
+  // Playwright real (não suposição): .rail-left/.rail-right ficam
+  // display:none em telas <=768px (home.css/responsive.css, regra
+  // pré-existente, mesma que já tinha obrigado a tirar Radar do Esporte e
+  // Pulso BR do rail em sessões anteriores). O card .rail-block-tv vive
+  // DENTRO de .rail-left — por isso, em qualquer celular de verdade, a
+  // fileira de canais nunca apareceu, nem antes nem depois da reescrita 2:
+  // o rail inteiro já estava invisível, só isso explica "nada mudou".
+  // Fix: decide uma vez, no carregamento, se o destino é o rail (desktop,
+  // onde já funciona) ou a seção full-width #ovc-tv-home (já reservada no
+  // HTML, mesmo padrão de #ovc-mais-lidas-home) — nunca os dois ao mesmo
+  // tempo, pra não dobrar os 5 embeds simultâneos à toa.
   var HLS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js";
   var hlsLibPromise = null;
 
@@ -52,7 +65,9 @@
       ".tv-ch-media{position:relative;width:100%;aspect-ratio:16/9;background:#0b0f1a;",
       "  display:flex;align-items:center;justify-content:center;overflow:hidden;}",
       ".tv-ch-media video,.tv-ch-media iframe{width:100%;height:100%;display:block;border:0;}",
-      ".tv-ch-fallback{font-size:11px;color:#94a3b8;padding:10px 12px;text-align:center;}"
+      ".tv-ch-fallback{font-size:11px;color:#94a3b8;padding:10px 12px;text-align:center;}",
+      ".tv-fw-title{font-size:11px;text-transform:uppercase;letter-spacing:.16em;",
+      "  color:#94a3b8;margin-bottom:10px;font-weight:700;}"
     ].join("");
     var tag = document.createElement("style");
     tag.id = "ovc-tv-home-css";
@@ -138,15 +153,10 @@
   }
 
   function montar(live) {
-    var bloco = document.querySelector(".rail-block-tv");
-    if (!bloco) return;
-    var placeholder = bloco.querySelector(".tv-player-placeholder");
-    if (!placeholder) return;
-
     var canais = (live && Array.isArray(live.tv) ? live.tv : []).filter(function (c) {
       return c && c.url && c.active !== false;
     });
-    if (!canais.length) return; // sem nenhum canal configurado, deixa o placeholder como estava
+    if (!canais.length) return; // sem nenhum canal configurado, deixa tudo como estava
 
     var stack = document.createElement("div");
     stack.className = "tv-channel-stack";
@@ -154,11 +164,32 @@
       stack.appendChild(construirCard(canal));
     });
 
+    // .rail-left/.rail-right ficam display:none em <=768px — popular o
+    // card dentro do rail nesse caso nunca aparece pro usuário. Decide
+    // o destino uma vez, pelo viewport real no momento do carregamento.
+    var mobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+
+    if (mobile) {
+      var secFull = document.getElementById("ovc-tv-home");
+      if (!secFull) return;
+      var titulo = document.createElement("div");
+      titulo.className = "tv-fw-title";
+      titulo.textContent = "OVC TV";
+      secFull.appendChild(titulo);
+      secFull.appendChild(stack);
+      secFull.style.display = "block";
+      return;
+    }
+
+    var bloco = document.querySelector(".rail-block-tv");
+    if (!bloco) return;
+    var placeholder = bloco.querySelector(".tv-player-placeholder");
+    if (!placeholder) return;
     placeholder.replaceWith(stack);
   }
 
   function init() {
-    if (!document.querySelector(".rail-block-tv")) return;
+    if (!document.querySelector(".rail-block-tv") && !document.getElementById("ovc-tv-home")) return;
     injetarCSS();
     fetch("/api/live-data")
       .then(function (r) { return r.ok ? r.json() : null; })
