@@ -1057,7 +1057,11 @@ function load(){
     load();
     carregarColunistasFileira(); // depois de load() — o placeholder só existe após buildSection()
     carregarMaisLidas();
-    carregarOvcTv();
+    // carregarOvcTv() removida em 26/11/2026 — corria em paralelo com
+    // ovc-tv-home.js (reescrita 3) e, sempre que youtube_live_url estava
+    // vazio no config, forçava #ovc-tv-home de volta pra display:none —
+    // desfazia o fix real do widget novo no celular. ovc-tv-home.js agora
+    // é o único dono de .rail-block-tv e #ovc-tv-home na home.
     carregarColunistas();
     // Carrega sistema de banners Lions na home
     if(!document.getElementById('ovc-banner-home')){
@@ -1100,45 +1104,6 @@ function load(){
         });
         html+='</div>';
         sec.innerHTML=html; sec.style.display='block';
-      }).catch(function(){ sec.style.display='none'; });
-  }
-
-  function carregarOvcTv(){
-    var sec = document.getElementById('ovc-tv-home');
-    if(!sec) return;
-    fetch('/api/manage')
-      .then(function(r){ return r.json(); })
-      .then(function(cfg){
-        var ytUrl = cfg.youtube_live_url;
-        if(!document.getElementById('ovc-pulse-style')){
-          var st=document.createElement('style'); st.id='ovc-pulse-style';
-          st.textContent='@keyframes ovc-pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}'; document.head.appendChild(st);
-        }
-        // Sidebar rail TV
-        var sidebarTv = document.querySelector('.rail-block-tv');
-        if (sidebarTv) {
-          if (ytUrl) {
-            sidebarTv.innerHTML = '<div class="rail-title">OVC TV • Ao vivo</div>'
-              +'<div class="tv-live-pill"><span class="tv-dot"></span> ao vivo agora</div>'
-              +'<div style="border-radius:8px;overflow:hidden;margin-top:8px;">'
-              +'<iframe width="100%" height="158" src="'+ytUrl+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe>'
-              +'</div>';
-          } else {
-            var ph = sidebarTv.querySelector('.tv-player-placeholder');
-            if (ph) { ph.style.cursor='pointer'; ph.title='Abrir canal OVC no YouTube'; ph.onclick=function(){ window.open('https://youtube.com/@ovalorcapital','_blank'); }; }
-          }
-        }
-        // Full-width TV section
-        if(!ytUrl){ sec.style.display='none'; return; }
-        sec.innerHTML='<div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.25);">'
-          +'<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.08);">'
-            +'<div style="display:flex;align-items:center;gap:12px;"><span style="background:#e11d48;color:#fff;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:6px 14px;border-radius:6px;">OVC TV</span>'
-            +'<div style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:ovc-pulse 2s infinite;"></span><span style="font-size:12px;color:rgba(255,255,255,0.6);font-weight:500;">AO VIVO</span></div></div>'
-            +'<span style="font-size:11px;color:rgba(255,255,255,0.3);">Transmissão integrada &bull; O Valor Capital</span>'
-          +'</div><div style="position:relative;padding-bottom:42.86%;height:0;overflow:hidden;">'
-          +'<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;" src="'+ytUrl+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy"></iframe>'
-          +'</div></div>';
-        sec.style.display='block';
       }).catch(function(){ sec.style.display='none'; });
   }
 
