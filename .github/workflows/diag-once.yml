@@ -5,31 +5,24 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Procurar player/stream proprio (nao-YouTube) nas paginas oficiais
+      - name: Testar manifest HLS real da TV Cultura
         run: |
           set +e
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-
-          check() {
-            name="$1"
-            url="$2"
-            echo "=========================================="
-            echo "=== $name ==="
-            echo "URL: $url"
-            final=$(curl -sS -L -o /tmp/page.html -w "%{http_code} -> %{url_effective}" --max-time 20 -A "$UA" "$url")
-            echo "HTTP/final: $final"
-            size=$(wc -c < /tmp/page.html)
-            echo "tamanho: $size bytes"
-            echo "--- m3u8 encontrado? ---"
-            grep -o 'https\?://[^"'"'"' ]*\.m3u8[^"'"'"' ]*' /tmp/page.html | sort -u | head -5
-            echo "--- iframes (primeiros 5 src) ---"
-            grep -o '<iframe[^>]*src="[^"]*"' /tmp/page.html | head -5
-            echo "--- video/source src (primeiros 5) ---"
-            grep -o '<\(video\|source\)[^>]*src="[^"]*"' /tmp/page.html | head -5
-            echo ""
-          }
-
-          check "TV_Senado" "https://www12.senado.leg.br/tv/programas/ao-vivo"
-          check "TV_Brasil_webtv" "https://tvbrasil.ebc.com.br/webtv"
-          check "TV_Justica" "https://www.tvjustica.jus.br"
-          check "TV_Cultura" "https://www.tvcultura.com.br"
+          echo "=== HEAD no manifest ==="
+          curl -sS -I --max-time 15 "https://player-tvcultura.stream.uol.com.br/live/tvcultura.m3u8"
+          echo ""
+          echo "=== GET no manifest (conteudo) ==="
+          curl -sS --max-time 15 -o /tmp/manifest.m3u8 -w "HTTP:%{http_code} size:%{size_download}\n" "https://player-tvcultura.stream.uol.com.br/live/tvcultura.m3u8"
+          cat /tmp/manifest.m3u8
+          echo ""
+          echo "=== Se for playlist master, testar a 1a variante referenciada ==="
+          first_variant=$(grep -v '^#' /tmp/manifest.m3u8 | head -1)
+          echo "variante: $first_variant"
+          if [ -n "$first_variant" ]; then
+            case "$first_variant" in
+              http*) full_url="$first_variant" ;;
+              *) full_url="https://player-tvcultura.stream.uol.com.br/live/$first_variant" ;;
+            esac
+            echo "testando: $full_url"
+            curl -sS -o /dev/null --max-time 15 -w "HTTP:%{http_code} size:%{size_download}\n" "$full_url"
+          fi
