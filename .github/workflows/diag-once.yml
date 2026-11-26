@@ -5,26 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar status real de cada canal do YouTube AGORA (de uma rede real, não da Vercel)
-        run: |
-          set -e
-          CHANNELS="UCLgti7NuK0RuW9wty-fxPjQ:TV_Senado UCSv9d0kQegylHWpP83jWSQg:TV_Brasil UCvZbqQ3yuXJHcjehr9nyXvw:TV_Justica UCjOJvvYe6tyEHY21OD33h8A:TV_Cultura"
-          for entry in $CHANNELS; do
-            id="${entry%%:*}"
-            name="${entry##*:}"
-            echo "=========================================="
-            echo "=== $name ($id) ==="
-            echo "--- redirect /channel/$id/live ---"
-            final_url=$(curl -sS -L -o /tmp/watch_$id.html -w "%{url_effective}" --max-time 15 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" "https://www.youtube.com/channel/$id/live")
-            echo "URL final: $final_url"
-            echo "--- playabilityStatus no HTML da página final ---"
-            grep -o '"playabilityStatus":{"status":"[A-Z_]*"' /tmp/watch_$id.html | head -1 || echo "nao encontrado"
-            echo "--- isLiveNow/isLive no HTML ---"
-            grep -o '"isLive\(Now\)\?":\(true\|false\)' /tmp/watch_$id.html | head -3 || echo "nao encontrado"
-            echo "--- reason (se houver, ex: 'This live event has ended') ---"
-            grep -o '"reason":"[^"]*"' /tmp/watch_$id.html | head -1 || echo "nenhum reason"
-            echo ""
-          done
-          echo "=========================================="
-          echo "=== TV Camara (HLS, referencia - deve estar sempre ao vivo) ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code} size:%{size_download}\n" --max-time 15 "https://stream3.camara.gov.br/tv1/manifest.m3u8"
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
