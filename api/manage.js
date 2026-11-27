@@ -3986,6 +3986,47 @@ const COLUNA_PERSONAS = {
   "coluna-ovc":       { nome: "Coluna OVC",        tag: "Voz Institucional", bio: "Padrão editorial OVC estilo coluna. Conservador, analítico, factual." }
 };
 
+// ══════════════════════════════════════════════════════════════════════
+// ESTRUTURA PADRÃO DE COLUNISTAS — 27/11/2026, REGRA INVIOLÁVEL (Roberto).
+// Toda coluna, sem exceção, publicada por qualquer caminho (manual/
+// emergência via admin_colunista_post, ou gerada por IA via gerar_coluna),
+// SEMPRE leva no início "COLUNA DO <NOME>" + data, seguido de
+// "@colunista · @ovalorcapital", e no fim o aviso jurídico de que a
+// opinião do colunista não reflete necessariamente a do veículo. Nunca
+// mais manual/opcional — é aplicado automaticamente em toda publicação.
+const COLUNISTA_LABEL = {
+  "roberto-terrasan":       "COLUNA DO TERRASAN",
+  "beta-ferreira":          "COLUNA DA BETA",
+  "adriana-ferreira":       "COLUNA DA ADRIANA",
+  "michele-froiz":          "COLUNA DA MICHELE",
+  "flavio-breghiroli":      "COLUNA DO FLÁVIO",
+  "aline-penedo-garcia":    "COLUNA DA ALINE",
+  "taisa-da-fonseca":       "COLUNA DA TAÍSA",
+  "prof-marcos-pizzolatto": "COLUNA DO PROF. PIZZOLATTO",
+  "coluna-ovc":             "COLUNA OVC"
+};
+// Mesmos handles de core/instagram.js (COLUNISTA_INSTAGRAM) — duplicado
+// aqui de propósito, sem import cruzado, mesmo padrão já usado no projeto
+// pra evitar qualquer risco de import estático de módulo pesado.
+const COLUNISTA_INSTAGRAM_HANDLE = {
+  "roberto-terrasan":    "oterrasan",
+  "beta-ferreira":       "souabetaferreira",
+  "adriana-ferreira":    "adriana.ferreirasp",
+  "michele-froiz":       "amichelefroes",
+  "flavio-breghiroli":   "com.flavio.breghiroli.garcia",
+  "aline-penedo-garcia": "alinepenedogarcia",
+  "taisa-da-fonseca":    "taisadafonseca"
+};
+function wrapColunaConteudo(conteudo, slug) {
+  const label = COLUNISTA_LABEL[slug] || "COLUNA";
+  const dataExtenso = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "long", year: "numeric" });
+  const handle = COLUNISTA_INSTAGRAM_HANDLE[slug];
+  const linhaHandles = handle ? `<p>@${handle} · @ovalorcapital</p>` : `<p>@ovalorcapital</p>`;
+  const cabecalho = `<p><strong>${label}</strong> · ${dataExtenso}</p>${linhaHandles}`;
+  const rodape = `<p><em>A opinião dos colunistas não necessariamente reflete a opinião deste veículo — responsabilidade integral do colunista.</em></p>`;
+  return cabecalho + String(conteudo || "").trim() + rodape;
+}
+
 // 31/08/2026 — NOVO. "Editor de Colunas" (aba EditorColunas do admin) chamava
 // esta action sem NENHUM handler existir (grep confirmado) — sempre caía no
 // fallback genérico. Gera via rewriteColuna() (core/ai_portal.js — kernel
@@ -4003,7 +4044,7 @@ async function handleGerarColuna(req, res, body) {
     const { titulo, corpo } = await rewriteColuna(persona.nome, persona.tag, persona.bio, tema, body.referencias || "", body.contexto || "");
     const hash = crypto.createHash("md5").update(slug + "_" + tema.slice(0, 100) + "_" + Date.now()).digest("hex");
     const post = {
-      titulo, conteudo: corpo,
+      titulo, conteudo: wrapColunaConteudo(corpo, slug),
       comentario_fixado: "",
       imagem: null, hash,
       status: "pendente", approved: false,
@@ -4094,7 +4135,7 @@ async function handleSubmitColunistaPost(req, res, body) {
 
   const post = {
     titulo: tituloClean,
-    conteudo: String(conteudo).trim(),
+    conteudo: wrapColunaConteudo(String(conteudo).trim(), slug),
     imagem: imagem || null,
     hash,
     status: "pendente",
@@ -4128,7 +4169,7 @@ async function handleAdminColunistaPost(req, res, body) {
 
   const post = {
     titulo: tituloClean,
-    conteudo: String(conteudo).trim(),
+    conteudo: wrapColunaConteudo(String(conteudo).trim(), subcSlug),
     imagem: imagem || null,
     hash,
     status: "publicado",
