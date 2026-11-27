@@ -5,6 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Remove legenda inventada e corrige tamanho da imagem na coluna do Flavio
-        run: python3 scripts/one-off/flavio_fix_figura.py
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
