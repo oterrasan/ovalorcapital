@@ -6,5 +6,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Publicar coluna do Flavio (emergencia, pedido direto de Roberto)
-        run: python3 scripts/one-off/flavio_publish.py
+      - name: Tentar imagem real + publicar no Instagram (Flavio, v2)
+        run: python3 scripts/one-off/flavio_publish_v2.py
