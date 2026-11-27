@@ -3925,3 +3925,94 @@ img, video, iframe, embed, object {
   .ovc-sp-cta { margin-left: 0; padding-left: 0; width: 100%; text-align: center; margin-top: 8px; }
   .ovc-sp-divider { display: none; }
 }
+
+/* =========================================================
+   27/11/2026 — MODO DENSO DESKTOP (Roberto testou zoom 70% do
+   navegador e gostou do efeito "portal maior/mais amplo": mais
+   conteúdo visível na mesma tela, sem precisar o usuário mexer em
+   nada). Testado antes de aplicar: o CSS `zoom` NÃO infla a largura
+   efetiva do viewport nas media queries (confirmado com teste real
+   em Chromium) — diferente do zoom manual do navegador — então em
+   vez de usar `zoom`, a densidade é real: fontes e alturas de card
+   reduzidas por valor explícito, com piso de legibilidade, só no
+   miolo central (.hero-region/.cols-region/.cols-region-2).
+
+   Os rails (.rail-left/.rail-right — onde vivem TV OVC e o banner
+   da ROHE) são DELIBERADAMENTE preservados no tamanho original —
+   Roberto pediu pra não perderem "glamour"; ficando do mesmo
+   tamanho ao lado de um miolo mais denso, eles automaticamente
+   ganham destaque visual relativo, sem precisar crescer de verdade.
+
+   Só desktop (min-width:1025px) — telas menores (tablet/mobile) já
+   têm seus próprios breakpoints tunados à parte, intocados aqui.
+   ========================================================= */
+@media (min-width: 1025px) {
+  .hero-region,
+  .cols-region,
+  .cols-region-2 {
+    /* Escala tipográfica reduzida ~10-12%, piso de legibilidade
+       respeitado (nada abaixo de 10px) — reaproveita os mesmos
+       tokens que o resto do design system já usa via var(). */
+    --font-size-xxs: 10px;
+    --font-size-xs:  10px;
+    --font-size-sm:  11px;
+    --font-size-md:  12px;
+    --font-size-base:13px;
+    --font-size-lg:  14px;
+    --font-size-xl:  15px;
+    --font-size-2xl: 17px;
+  }
+
+  .hero-region {
+    margin-bottom: 14px;
+  }
+
+  .cols-region {
+    column-gap: 16px;
+  }
+
+  .cols-region-2 {
+    column-gap: 16px;
+    margin-top: 14px;
+  }
+
+  .card-hero-grid > .card-hero-main,
+  .card-hero-grid > .card-feature,
+  .card-hero-grid > .card-monetizado {
+    height: 360px !important;
+    min-height: 360px !important;
+    max-height: 360px !important;
+  }
+
+  .hero-region .card-standard {
+    min-height: 290px;
+  }
+
+  .hero-region .card-monetizado {
+    min-height: 300px;
+  }
+
+  .cols-region .card-standard,
+  .cols-region-2 .card-standard {
+    min-height: 330px;
+  }
+
+  .cols-region .card-mini,
+  .cols-region-2 .card-mini {
+    min-height: 200px;
+  }
+
+  .cols-region .card-standard .ovc-card-img,
+  .cols-region-2 .card-standard .ovc-card-img {
+    height: 150px !important;
+    min-height: 150px !important;
+    max-height: 150px !important;
+  }
+
+  .cols-region .card-mini .ovc-card-img,
+  .cols-region-2 .card-mini .ovc-card-img {
+    height: 160px !important;
+    min-height: 160px !important;
+    max-height: 160px !important;
+  }
+}
