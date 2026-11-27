@@ -45,30 +45,54 @@
 
   function injetarCSS() {
     if (document.getElementById("ovc-tv-home-css")) return;
+    // 27/11/2026 — acabamento visual refeito: usa as variáveis do design
+    // system do portal (--gold/--accent/--card-radius/--shadow-card/
+    // --border-subtle/--bg-card/--text-*) em vez de hex soltos, pra ficar
+    // integrado ao resto do site e respeitar automaticamente os temas
+    // (claro/graphite/dourado/escuro) sem precisar duplicar regra nenhuma.
     var css = [
-      ".tv-channel-stack{display:flex;flex-direction:column;gap:10px;margin-top:4px;}",
-      ".tv-ch-card{background:#fff;border-radius:14px;overflow:hidden;",
-      "  border:1px solid rgba(15,23,42,.08);box-shadow:0 4px 16px rgba(15,23,42,.06);}",
+      ".tv-channel-stack{display:flex;flex-direction:column;gap:14px;margin-top:4px;}",
+      ".tv-ch-card{background:var(--bg-card,#fff);border-radius:calc(var(--card-radius,18px) - 4px);",
+      "  overflow:hidden;border:1px solid var(--border-subtle,rgba(15,23,42,.08));",
+      "  box-shadow:var(--shadow-card,0 4px 16px rgba(15,23,42,.06));position:relative;}",
+      ".tv-ch-accent{position:absolute;top:0;left:0;right:0;height:3px;",
+      "  background:linear-gradient(90deg,var(--accent,#b91c1c),transparent 140%);}",
+      ".tv-ch-card.tv-ch-scheduled .tv-ch-accent{",
+      "  background:linear-gradient(90deg,var(--gold,#d4af37),transparent 140%);}",
       ".tv-ch-head{display:flex;align-items:center;justify-content:space-between;",
-      "  padding:9px 12px 0;}",
-      ".tv-ch-eyebrow{font-size:9.5px;font-weight:800;letter-spacing:.08em;",
-      "  text-transform:uppercase;color:#94a3b8;}",
+      "  padding:13px 14px 0;}",
+      ".tv-ch-eyebrow{font-size:9.5px;font-weight:800;letter-spacing:.1em;",
+      "  text-transform:uppercase;color:var(--text-muted,#94a3b8);}",
       ".tv-ch-badge{display:inline-flex;align-items:center;gap:5px;font-size:9px;",
-      "  font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;",
-      "  background:#b91c1c;padding:3px 8px;border-radius:999px;}",
-      ".tv-ch-badge.tv-ch-badge-live{background:#b91c1c;}",
-      ".tv-ch-badge.tv-ch-badge-24h{background:#475569;}",
+      "  font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;",
+      "  padding:4px 9px;border-radius:999px;}",
+      ".tv-ch-badge.tv-ch-badge-live{background:linear-gradient(135deg,#dc2626,var(--accent,#b91c1c));",
+      "  box-shadow:0 0 0 1px rgba(185,28,28,.25),0 2px 8px rgba(185,28,28,.3);}",
+      ".tv-ch-badge.tv-ch-badge-24h{background:linear-gradient(135deg,#caa236,var(--gold,#d4af37));",
+      "  color:#2b2208;box-shadow:0 2px 8px rgba(212,175,55,.3);}",
       ".tv-ch-dot{width:6px;height:6px;border-radius:50%;background:#fecaca;",
       "  box-shadow:0 0 0 0 rgba(255,255,255,.6);animation:ovcTvDotPulse 1.6s infinite;}",
       "@keyframes ovcTvDotPulse{0%{opacity:1;}50%{opacity:.35;}100%{opacity:1;}}",
-      ".tv-ch-title{padding:6px 12px 2px;font-size:13.5px;font-weight:800;color:#0f172a;}",
-      ".tv-ch-note{padding:0 12px 8px;font-size:10.5px;color:#94a3b8;line-height:1.35;}",
-      ".tv-ch-media{position:relative;width:100%;aspect-ratio:16/9;background:#0b0f1a;",
-      "  display:flex;align-items:center;justify-content:center;overflow:hidden;}",
-      ".tv-ch-media video,.tv-ch-media iframe{width:100%;height:100%;display:block;border:0;}",
-      ".tv-ch-fallback{font-size:11px;color:#94a3b8;padding:10px 12px;text-align:center;}",
+      ".tv-ch-title{padding:7px 14px 3px;font-size:14.5px;font-weight:800;",
+      "  color:var(--text-main,#0f172a);letter-spacing:-.01em;}",
+      ".tv-ch-note{display:flex;align-items:flex-start;gap:6px;margin:6px 14px 10px;",
+      "  padding:7px 9px;border-radius:9px;background:rgba(212,175,55,.1);",
+      "  font-size:10.5px;color:var(--text-soft,#475569);line-height:1.4;}",
+      ".tv-ch-note::before{content:'i';flex:0 0 auto;width:13px;height:13px;",
+      "  border-radius:50%;background:var(--gold,#d4af37);color:#2b2208;",
+      "  font-size:9.5px;font-weight:800;font-style:normal;line-height:13px;",
+      "  text-align:center;margin-top:1px;}",
+      ".tv-ch-media{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;",
+      "  background:radial-gradient(circle at 50% 42%,#1b2234,#0b0f1a 72%);",
+      "  display:flex;align-items:center;justify-content:center;}",
+      ".tv-ch-media::before{content:'OVC';position:absolute;font-family:var(--font-editorial,serif);",
+      "  font-style:italic;font-weight:700;font-size:26px;letter-spacing:.04em;",
+      "  color:rgba(255,255,255,.08);pointer-events:none;}",
+      ".tv-ch-media video,.tv-ch-media iframe{position:relative;width:100%;height:100%;",
+      "  display:block;border:0;}",
+      ".tv-ch-fallback{position:relative;font-size:11px;color:#cbd5e1;padding:10px 12px;text-align:center;}",
       ".tv-fw-title{font-size:11px;text-transform:uppercase;letter-spacing:.16em;",
-      "  color:#94a3b8;margin-bottom:10px;font-weight:700;}"
+      "  color:var(--text-muted,#94a3b8);margin-bottom:10px;font-weight:700;}"
     ].join("");
     var tag = document.createElement("style");
     tag.id = "ovc-tv-home-css";
@@ -124,9 +148,13 @@
 
   function construirCard(canal) {
     var card = document.createElement("div");
-    card.className = "tv-ch-card";
-
     var isHls = canal.kind === "hls";
+    card.className = "tv-ch-card" + (isHls ? "" : " tv-ch-scheduled");
+
+    var accent = document.createElement("div");
+    accent.className = "tv-ch-accent";
+    card.appendChild(accent);
+
     var head = document.createElement("div");
     head.className = "tv-ch-head";
     head.innerHTML =
