@@ -61,7 +61,8 @@
       ".tv-ch-dot{width:6px;height:6px;border-radius:50%;background:#fecaca;",
       "  box-shadow:0 0 0 0 rgba(255,255,255,.6);animation:ovcTvDotPulse 1.6s infinite;}",
       "@keyframes ovcTvDotPulse{0%{opacity:1;}50%{opacity:.35;}100%{opacity:1;}}",
-      ".tv-ch-title{padding:6px 12px 8px;font-size:13.5px;font-weight:800;color:#0f172a;}",
+      ".tv-ch-title{padding:6px 12px 2px;font-size:13.5px;font-weight:800;color:#0f172a;}",
+      ".tv-ch-note{padding:0 12px 8px;font-size:10.5px;color:#94a3b8;line-height:1.35;}",
       ".tv-ch-media{position:relative;width:100%;aspect-ratio:16/9;background:#0b0f1a;",
       "  display:flex;align-items:center;justify-content:center;overflow:hidden;}",
       ".tv-ch-media video,.tv-ch-media iframe{width:100%;height:100%;display:block;border:0;}",
@@ -139,6 +140,21 @@
     title.className = "tv-ch-title";
     title.textContent = canal.label || "Canal";
     card.appendChild(title);
+
+    if (!isHls) {
+      // 27/11/2026 — Roberto mandou print real mostrando "Este vídeo não
+      // está disponível" nos canais sem stream próprio (Senado/Justiça) —
+      // é a mensagem nativa do YouTube quando o canal não está transmitindo
+      // agora (confirmado com evidência real: LIVE_STREAM_OFFLINE, sessão
+      // ainda não começou). Não dá pra fazer esses canais tocarem fora do
+      // horário real deles — mas uma legenda fixa explica o motivo, pra
+      // nunca parecer card quebrado, mesmo quando o YouTube mostra o erro
+      // dele por trás.
+      var nota = document.createElement("div");
+      nota.className = "tv-ch-note";
+      nota.textContent = "Transmite em horário comercial e sessões ao vivo — fora desse período, o player fica sem sinal.";
+      card.appendChild(nota);
+    }
 
     var media = document.createElement("div");
     media.className = "tv-ch-media";
