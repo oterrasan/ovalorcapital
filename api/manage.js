@@ -3996,13 +3996,13 @@ const COLUNA_PERSONAS = {
 // mais manual/opcional — é aplicado automaticamente em toda publicação.
 const COLUNISTA_LABEL = {
   "roberto-terrasan":       "COLUNA DO TERRASAN",
-  "beta-ferreira":          "COLUNA DA BETA",
-  "adriana-ferreira":       "COLUNA DA ADRIANA",
-  "michele-froiz":          "COLUNA DA MICHELE",
-  "flavio-breghiroli":      "COLUNA DO FLÁVIO",
-  "aline-penedo-garcia":    "COLUNA DA ALINE",
-  "taisa-da-fonseca":       "COLUNA DA TAÍSA",
-  "prof-marcos-pizzolatto": "COLUNA DO PROF. PIZZOLATTO",
+  "beta-ferreira":          "COLUNA DA BETA FERREIRA",
+  "adriana-ferreira":       "COLUNA DA ADRIANA FERREIRA",
+  "michele-froiz":          "COLUNA DA MICHELE FROIZ",
+  "flavio-breghiroli":      "COLUNA DO FLÁVIO BREGHIROLI",
+  "aline-penedo-garcia":    "COLUNA DA ALINE PENEDO GARCIA",
+  "taisa-da-fonseca":       "COLUNA DA TAÍSA DA FONSECA",
+  "prof-marcos-pizzolatto": "COLUNA DO PROF. MARCOS PIZZOLATTO",
   "coluna-ovc":             "COLUNA OVC"
 };
 // Mesmos handles de core/instagram.js (COLUNISTA_INSTAGRAM) — duplicado
