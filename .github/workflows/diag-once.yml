@@ -5,5 +5,6 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer no momento
-        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
+      - uses: actions/checkout@v3
+      - name: Publicar coluna do Flavio (emergencia, pedido direto de Roberto)
+        run: python3 scripts/one-off/flavio_publish.py
