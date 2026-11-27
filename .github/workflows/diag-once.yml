@@ -5,6 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Tentar imagem real + publicar no Instagram (Flavio, v2)
-        run: python3 scripts/one-off/flavio_publish_v2.py
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
