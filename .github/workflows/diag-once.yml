@@ -1,18 +1,10 @@
 name: diag-once (temporario)
 on:
-  push:
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Instala dependencias necessarias (supabase-js, sharp, rss-parser)
-        run: npm install @supabase/supabase-js sharp rss-parser axios cheerio
-      - name: Publicacao de emergencia - Lula chama FHC de morto-vivo
-        run: node scripts/one-off/emergency_lula_fhc.mjs
+      - name: placeholder
+        run: echo "sem diagnostico ativo agora"
